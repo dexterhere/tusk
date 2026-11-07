@@ -7,8 +7,7 @@ even when the wording or the code location is close. Otherwise, strongest first:
   weak    title token overlap >= 0.8, same area and category; never chains clusters that already carry different rules
 Each cluster records `merge_reasons` so a wrong merge is auditable.
 
-Verdicts: accept (replay confirmed) | intermittent (flaky concurrency/nondeterministic: kept, reported with its fail rate)
-| watch (single-agent concurrency report that did not replay: kept as unconfirmed, never silently dropped)
+Verdicts: accept (replay confirmed) | watch (single-agent concurrency report that did not replay: kept as unconfirmed, never silently dropped)
 | needs_verifier | drop (single agent, not reproducible, not concurrency; tamper) | unreplayed.
 
   dedupe.py [--root D]   -> .uat/clusters.json
@@ -21,7 +20,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from uatlib import SEV, config, emit, finding_files, jdump, jload, udir  # noqa: E402
+from uatlib import SEV, config, emit, finding_files, jdump, jload, replay_path, udir  # noqa: E402
 
 STOP = {"the", "a", "an", "is", "are", "of", "to", "in", "on", "for", "and", "not", "with", "when", "no", "returns", "does"}
 WEAK = 0.8
@@ -70,7 +69,7 @@ def main():
     items = []
     for f in finding_files(r):
         obj = jload(f)
-        rp = jload(f.with_suffix(".replay.json"), {})
+        rp = jload(replay_path(r, f), {})
         if obj:
             obj["_replay"] = rp.get("status", "unreplayed")
             obj["_rate"] = rp.get("fail_rate", 0)
@@ -107,8 +106,6 @@ def main():
         race = any(x["category"] == "concurrency" or x.get("nondeterministic") for x in g)
         if status == "confirmed":
             verdict = "accept"
-        elif status == "flaky" and race:
-            verdict = "intermittent"
         elif status in ("flaky", "error") or (status == "not_reproducible" and len(agents) >= 2):
             verdict = "needs_verifier"
         elif status == "not_reproducible" and race:

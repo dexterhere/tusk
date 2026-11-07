@@ -32,7 +32,7 @@ def main():
     acc, rej = [], []
     for c in clusters:
         v = verdicts.get(c["cid"], {}).get("verdict") or c["verdict"]
-        (acc if v in ("accept", "intermittent") else rej).append({**c, "final": v, "note": verdicts.get(c["cid"], {}).get("note", "")})
+        (acc if v == "accept" else rej).append({**c, "final": v, "note": verdicts.get(c["cid"], {}).get("note", "")})
     items = []
     for c in acc:
         lead = jload(r / c["files"][0], {})
@@ -48,7 +48,7 @@ def main():
         jdump(reg / "finding.json", lead)
         items.append({
             "cid": c["cid"], "fp": c["fp"], "title": c["title"], "severity": c["severity"], "category": c["category"], "area": c["area"],
-            "rule_id": c["rule_id"], "confidence": {"agents": c["agreement"], "families": c["families"], "replay": c["replay"], "fail_rate": c["fail_rate"], "intermittent": c["final"] == "intermittent"}, "kind": c["kind"],
+            "rule_id": c["rule_id"], "confidence": {"agents": c["agreement"], "families": c["families"], "replay": c["replay"], "fail_rate": c["fail_rate"], "intermittent": c["replay"] == "flaky"}, "kind": c["kind"],
             "expected": lead.get("expected"), "actual": lead.get("actual"), "repro": lead.get("repro"), "repro_dir": str(agent_dir.relative_to(r)),
             "regression_dir": str(reg.relative_to(r)), "evidence": lead.get("evidence"), "suspect": lead.get("suspect"),
             "acceptance": f"cd {agent_dir.relative_to(r)} && {lead.get('repro', {}).get('cmd')}   # must exit 0 after the fix",

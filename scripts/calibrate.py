@@ -11,7 +11,7 @@ from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from uatlib import finding_files, jload, udir  # noqa: E402
+from uatlib import finding_files, jload, replay_path, udir  # noqa: E402
 
 
 def main():
@@ -24,7 +24,7 @@ def main():
     stats = defaultdict(lambda: {"found": set(), "total": 0, "true": 0})
     for f in finding_files(r):
         o = jload(f, {})
-        rp = jload(f.with_suffix(".replay.json"), {}).get("status")
+        rp = jload(replay_path(r, f), {}).get("status")
         s = stats[(o.get("family"), o.get("model"))]
         s["total"] += 1
         if o.get("rule_id") in seeded and rp == "confirmed":

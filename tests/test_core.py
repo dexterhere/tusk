@@ -2,6 +2,7 @@
 Run: python3 -m unittest discover -s tests -v   (from the uat-swarm dir)
 """
 import json
+import shutil
 import socket
 import subprocess
 import sys
@@ -28,19 +29,42 @@ def finding(fid, agent, family, rule, title, probe, sev="major", area="cart", cm
     }
 
 
+def free_port_block(n=4):
+    while True:
+        s = socket.socket()
+        s.bind(("127.0.0.1", 0))
+        p = s.getsockname()[1]
+        s.close()
+        if p < 60000 and all(_free(p + i) for i in range(n)):
+            return p
+
+
+def _free(port):
+    with socket.socket() as s:
+        return s.connect_ex(("127.0.0.1", port)) != 0
+
+
+def mkroot(tmp, over=None):
+    """A UAT project dir whose golden workspace holds the demo app; lanes run it on their own ports."""
+    root = Path(tmp)
+    (root / ".uat").mkdir(exist_ok=True)
+    port = free_port_block()
+    cfg = {"env": {"base_port": port, "base_url": f"http://127.0.0.1:{port}", "health_url": f"http://127.0.0.1:{port}/", "health_timeout_s": 15,
+                   "start_cmd": "python3 demo_app/app.py {port}"}}
+    for k, v in (over or {}).items():
+        cfg[k] = {**cfg.get(k, {}), **v}
+    (root / ".uat" / "uat.json").write_text(json.dumps(cfg))
+    shutil.copytree(DEMO, root / "demo_app", ignore=shutil.ignore_patterns("__pycache__"))
+    r = run("uat_env.py", "workspace", "--root", str(root))
+    assert r.returncode == 0, r.stderr
+    return root
+
+
 class Pipeline(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        s = socket.socket()
-        s.bind(("127.0.0.1", 0))
-        cls.port = s.getsockname()[1]
-        s.close()
-        cls.srv = subprocess.Popen([PY, str(DEMO / "app.py"), str(cls.port)])
-        time.sleep(0.8)
         cls.tmp = tempfile.TemporaryDirectory()
-        cls.root = Path(cls.tmp.name)
-        (cls.root / ".uat").mkdir()
-        (cls.root / ".uat" / "uat.json").write_text(json.dumps({"env": {"base_url": f"http://127.0.0.1:{cls.port}"}, "replay": {"runs": 3, "restore_between": False}}))
+        cls.root = mkroot(cls.tmp.name, {"swarm": {"max_parallel": 3}, "replay": {"runs": 3}})
         a1 = cls.root / ".uat/agents/A1/findings"
         a2 = cls.root / ".uat/agents/A2/findings"
         a3 = cls.root / ".uat/agents/A3/findings"
@@ -62,7 +86,7 @@ class Pipeline(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        cls.srv.terminate()
+        run("uat_env.py", "lanes", "down", "--root", str(cls.root))
         cls.tmp.cleanup()
 
     def test_pipeline(self):
@@ -121,13 +145,15 @@ class Misc(unittest.TestCase):
 
     def test_run_agent_ledger_and_timeout(self):
         with tempfile.TemporaryDirectory() as t:
-            r = run("run_agent.py", "--root", t, "--id", "A9", "--family", "codex", "--model", "m", "--cmd", "echo hi")
+            mkroot(t)
+            r = run("run_agent.py", "--root", t, "--id", "A9", "--family", "codex", "--model", "m", "--lane", "L1", "--cmd", "echo hi")
             self.assertEqual(r.returncode, 0, r.stderr)
             row = json.loads((Path(t) / ".uat/ledger.jsonl").read_text().splitlines()[0])
             self.assertEqual(row["id"], "A9")
             self.assertFalse(row["tamper"])
-            r = run("run_agent.py", "--root", t, "--id", "A8", "--family", "codex", "--model", "m", "--cmd", "sleep 30", "--timeout", "1")
+            r = run("run_agent.py", "--root", t, "--id", "A8", "--family", "codex", "--model", "m", "--lane", "L1", "--cmd", "sleep 30", "--timeout", "1")
             self.assertEqual(r.returncode, 1)
+            run("uat_env.py", "lanes", "down", "--root", t)
 
     def test_tools_dry_run(self):
         r = run("uat_tools.py", "install", "schemathesis", "k6", "hurl", "--dry-run", "--root", str(HOME))

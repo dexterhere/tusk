@@ -4,7 +4,7 @@ repro.cmd asserts CORRECT behaviour: non-zero exit = bug present.
 
   status: confirmed (all runs fail) | flaky (some fail; fail_rate recorded) | not_reproducible (none) | error (timeout/crash) | tamper
 Concurrency-type findings get `replay.stress_runs` runs instead of `replay.runs`, so a real but rare race shows up as flaky, not as nothing.
-Findings replay in parallel, one lane each. Writes <finding>.replay.json next to each finding.
+Findings replay in parallel, one lane each. Writes .uat/replays/<agent>/<finding>.replay.json (outside the agent-writable dir, so testers cannot forge verdicts).
 
   replay.py [--root D] [--runs N] [--only CLUSTER_ID] [--passing] [--lane L1] [--keep-code]
   --passing    fix check: pass only if every finding now exits 0 on every run (use --keep-code after `uat_env lane sync`)
@@ -21,7 +21,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sandbox  # noqa: E402
 from uat_env import Lane  # noqa: E402
-from uatlib import HOME, config, emit, finding_files, jdump, jload, lane_names, udir  # noqa: E402
+from uatlib import HOME, config, emit, finding_files, jdump, jload, lane_names, replay_path, udir  # noqa: E402
 
 
 def run_count(obj, cfg, runs):
@@ -60,7 +60,7 @@ def replay_one(f, cfg, root, lane, runs, keep_code):
         status = "not_reproducible"
     else:
         status = "flaky"
-    jdump(f.with_suffix(".replay.json"), {"status": status, "fail_rate": round(fails / len(results), 3), "lane": lane.name, "runs": results})
+    jdump(replay_path(root, f), {"status": status, "fail_rate": round(fails / len(results), 3), "lane": lane.name, "runs": results})
     emit(root, "orchestrator", "replay", finding=obj["id"], agent=obj["agent"], status=status, fail_rate=round(fails / len(results), 3))
     return status
 

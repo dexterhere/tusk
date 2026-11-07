@@ -77,8 +77,21 @@ def finding_schema():
 
 
 def finding_files(r):
-    """Valid-location finding files: .uat/agents/<id>/findings/F-*.json"""
-    return sorted(p for p in (Path(r) / ".uat" / "agents").glob("*/findings/F-*.json") if not p.name.endswith(".replay.json"))
+    """Finding files at .uat/agents/<id>/findings/F-*.json. Symlinked dirs/files and anything resolving outside the agent dir are ignored
+    (the agent controls its own dir, so it could point them anywhere)."""
+    out = []
+    for p in sorted((Path(r) / ".uat" / "agents").glob("*/findings/F-*.json")):
+        agent_dir = p.parent.parent
+        if p.parent.is_symlink() or p.is_symlink() or not p.resolve().is_relative_to(agent_dir.resolve()):
+            continue
+        out.append(p)
+    return out
+
+
+def replay_path(r, finding_file):
+    """Replay verdicts live OUTSIDE the agent-writable dir, so a tester can never forge or overwrite them."""
+    f = Path(finding_file)
+    return udir(r) / "replays" / f.parent.parent.name / (f.stem + ".replay.json")
 
 
 # ---------------------------------------------------------------- events (feed the live dashboard)

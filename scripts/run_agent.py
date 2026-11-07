@@ -24,7 +24,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sandbox  # noqa: E402
 from uat_env import Lane  # noqa: E402
-from uatlib import HOME, config, emit, udir  # noqa: E402
+from uatlib import HOME, config, emit, finding_files, udir  # noqa: E402
 
 
 def build(family, model, agent_dir, prompt, confined):
@@ -78,6 +78,9 @@ def main():
     cfg = config(root)
     d = udir(root) / "agents" / a.id
     (d / "findings").mkdir(parents=True, exist_ok=True)
+    logdir = udir(root) / "logs"
+    logdir.mkdir(exist_ok=True)
+    log = logdir / f"{a.id}.log"                       # outside the agent-writable dir: the agent cannot swap it for a symlink
     timeout = a.timeout or (90 if a.ping else cfg["stop"]["agent_timeout_s"])
     prompt = "Reply with exactly: OK" if a.ping else f"Read {d / 'brief.md'} and follow it exactly. Write findings only under ./findings/."
     lane = Lane(root, cfg, a.lane)
@@ -94,29 +97,32 @@ def main():
 
     def beat():
         n = len(list((d / "findings").glob("F-*.json")))
-        emit(root, a.id, "agent_status", now=last_line(d / "agent.log"), findings=n, secs=round(time.time() - t0))
+        emit(root, a.id, "agent_status", now=last_line(log), findings=n, secs=round(time.time() - t0))
 
     rc, used = 1, None
-    tmp_home = None if a.ping else sandbox.agent_home(cfg, a.family, d / ".home")
+    tmp_home = None if a.ping else sandbox.agent_home(cfg, a.family)
     for model in a.model.split(","):
         state["model"] = used = model
         inner = a.cmd.split() if a.cmd else build(a.family, model, d, prompt, lvl == "bwrap")
         wr = [lane.ws / p for p in lane.tracked()]
         cmd = inner if a.ping else sandbox.wrap(cfg, inner, cwd=d, ws=lane.ws, tools=udir(root) / "tools", toolkit=HOME, home=tmp_home,
                                                 net=cfg["sandbox"]["network"]["agent"], writable=wr)
-        rc = run(cmd, d, env, timeout, d / "agent.log", beat)
-        out = (d / "agent.log").read_text(errors="ignore")
+        rc = run(cmd, d, env, timeout, log, beat)
+        out = log.read_text(errors="ignore")
         if rc == 0 and (not a.ping or "OK" in out):
             break
     secs = round(time.time() - t0, 1)
-    shutil.rmtree(d / ".home", ignore_errors=True)       # credentials copy never outlives the run
+    shutil.rmtree(tmp_home, ignore_errors=True) if tmp_home else None   # credentials copy never outlives the run
     tamper = [] if a.ping else lane.tamper()
+    if (d / "findings").is_symlink():                  # agent swapped its findings dir for a link: treat as tampering
+        tamper.append("findings dir is a symlink")
     if tamper:
-        q = d / "findings_quarantined"
-        q.mkdir(exist_ok=True)
-        for f in (d / "findings").glob("F-*.json"):
-            f.rename(q / f.name)
-    n = len(list((d / "findings").glob("F-*.json")))
+        q = udir(root) / "quarantine" / a.id
+        q.mkdir(parents=True, exist_ok=True)
+        for f in finding_files(root):
+            if f.parent.parent.name == a.id:
+                shutil.move(str(f), str(q / f.name))
+    n = len([f for f in finding_files(root) if f.parent.parent.name == a.id])
     row = {"ts": int(time.time()), "id": a.id, "family": a.family, "model": used, "rc": rc, "secs": secs, "findings": n, "tamper": bool(tamper),
            "ping": a.ping, "lane": a.lane, "sandbox": lvl}
     with open(udir(root) / "ledger.jsonl", "a") as f:

@@ -2,7 +2,7 @@
 """Fix queue: every failed or non-optimal result waits here until a human approves it. Nothing is fixed unasked.
 
 States: proposed -> approved -> fixing -> proven | failed | needs_human ;  proposed -> rejected
-Items come from .uat/clusters.json (verdict accept / intermittent, kind defect or suboptimal). Unconfirmed `watch` items are listed
+Items come from .uat/clusters.json (verdict accept, kind defect or suboptimal). Unconfirmed `watch` items are listed
 as info only. The dashboard and /uat-fix both read and write this one file.
 
   fixq.py sync | list | approve ID.. | approve --all | approve --severity blocker,major | reject ID.. | set ID STATE [--note T] [--branch B]
@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from uatlib import SEV, config, emit, jdump, jload, udir  # noqa: E402
 
 STATES = ("proposed", "approved", "fixing", "proven", "failed", "needs_human", "rejected")
-FIXABLE = ("accept", "intermittent")
+FIXABLE = ("accept",)
 
 
 def path(r):

@@ -10,6 +10,7 @@ recorded in the report so nobody mistakes it for stronger isolation.
 import os
 import re
 import shutil
+import tempfile
 from pathlib import Path
 
 ENV_KEEP = ("PATH", "LANG", "LC_ALL", "TERM", "TZ")
@@ -41,14 +42,16 @@ def clean_env(cfg, extra=None, path_prepend=()):
 SYSTEM = ("usr", "etc", "opt", "lib", "lib32", "lib64", "bin", "sbin")
 
 
-def agent_home(cfg, family, dest):
-    """Throwaway HOME for one agent run: copies of only the credential/config files its CLI needs. Delete with rmtree after."""
-    dest.mkdir(parents=True, exist_ok=True)
+def agent_home(cfg, family):
+    """Throwaway HOME for one agent run, in a host-only temp dir (the agent never sees this path and cannot write to it).
+    Copies only the credential/config files its CLI needs. Caller removes it with shutil.rmtree after the run."""
+    dest = Path(tempfile.mkdtemp(prefix="uat-home-"))
     for rel in cfg["sandbox"]["agent_home"].get(family or "", []):
         src = Path.home() / rel
-        if src.is_file():
-            (dest / rel).parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src, dest / rel)
+        if src.is_symlink() or not src.is_file():
+            continue
+        (dest / rel).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dest / rel, follow_symlinks=False)
     return dest
 
 
@@ -79,7 +82,9 @@ def wrap(cfg, argv, *, cwd, ws=None, tools=None, toolkit=None, home=None, net="h
         if p.exists():
             b += ["--bind", str(p), str(p)]
     if home:                                     # the agent sees its throwaway copy at its own $HOME path
-        for f in Path(home).rglob("*"):
-            if f.is_file():
-                b += ["--bind", str(f), str(real / f.relative_to(home))]
+        for dp, dns, fns in os.walk(home, followlinks=False):
+            for fn in fns:
+                f = Path(dp) / fn
+                if not f.is_symlink() and f.resolve().is_relative_to(Path(home).resolve()):
+                    b += ["--bind", str(f), str(real / f.relative_to(home))]
     return b + ["--chdir", str(cwd), "--setenv", "HOME", str(real), *argv]
