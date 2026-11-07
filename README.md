@@ -1,26 +1,100 @@
-<p align="center"><img src="web/logo.svg" alt="Tusk logo: the orchestrator elephant" width="96" height="96"></p>
+<div align="center">
+
+<img src="web/logo.svg" alt="Tusk logo: the orchestrator elephant" width="110" height="110">
 
 # Tusk
 
-*UAT Swarm: user-acceptance testing by a herd of AI agents.*
+**User-acceptance testing by a herd of AI agents.**<br>
+Cheap, blind testers try to break your app. A script proves what is real. You decide what gets fixed.
 
-**Hand your app to a herd of cheap, blind AI testers. Get back only the bugs a script could reproduce.**
+![License: MIT](https://img.shields.io/badge/license-MIT-black)
+![Platform: Linux](https://img.shields.io/badge/platform-linux-black)
+![Python: standard library only](https://img.shields.io/badge/python-stdlib%20only-black)
+![Nothing fixed without your yes](https://img.shields.io/badge/fixes-only%20with%20your%20yes-black)
 
-An orchestrator (the elephant, which remembers everything) sends many low-cost tester agents into isolated copies of your app. A deterministic script, not a model, replays every claim and decides what is real. Confirmed bugs go into a fix queue and a knowledge graph. **Nothing is fixed, pushed or deployed until you say yes in chat.**
+[Install](#install-in-one-line) · [First run](#your-first-run) · [Pick your task](#what-do-you-want-to-do) · [How it works](#how-it-works) · [Trust](#how-trust-works) · [Docs](docs/INSTALL.md)
 
-## Use it in 5 steps
+</div>
 
-**You need:** Linux, `python3`, `git`, `bwrap` (bubblewrap), and at least one agent CLI that is logged in (`claude`, `codex` or `opencode`; others in "Any agent" below). Claude Code runs the slash commands.
+---
 
-1. **Install once:** `git clone https://github.com/dexterhere/tusk.git ~/Work/uat`, then `cd ~/Work/uat && for s in skills/*; do ln -sfn "$PWD/$s" ~/.claude/skills/$(basename $s); done`. Full guide: [docs/INSTALL.md](docs/INSTALL.md).
-2. **Open your project** in Claude Code and run `/uat-full`.
-3. **Answer the setup questions.** Where to run (this computer or an ssh host), and the team: one orchestrator plus at least one worker, the same model or different ones. Models are pinged before they are trusted.
-4. **Watch it live** at `http://127.0.0.1:7777` (the dashboard starts for you). It shows who is testing what, findings, the fix cycle, the audit log and the knowledge graph.
-5. **Decide.** When testing ends it shows the report and asks which fixes may start. Approve some, all or none. Approved fixes are written on a branch and proven by replay; the next run re-tests them and marks each *verified* or *regressed*.
+## Install in one line
 
-Prefer control over automation? Run the stages yourself: `/uat-init`, `/uat-plan`, `/uat-execute`, `/uat-feedback`, `/uat-fix`; `/uat` shows where you are.
+Pick one. Each ends the same way: the `/uat` commands appear in Claude Code.
 
-**Safe by default:** tester commands run in a bubblewrap sandbox, only in disposable copies of your app; secrets are never sent to agents; the dashboard listens on 127.0.0.1 only; every phase, verdict and fix is in a tamper-evident audit log. Details under "How trust works".
+<details open>
+<summary><b>curl (no Node needed)</b></summary>
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/dexterhere/tusk/main/install.sh | sh
+```
+It clones Tusk to `~/.local/share/tusk`, checks your machine, and links the commands. Prefer to read it first? [install.sh](install.sh) is 10 lines.
+</details>
+
+<details>
+<summary><b>npm</b></summary>
+
+```sh
+npm i -g @dexterhere/tusk && tusk setup
+```
+`tusk setup` is a short guided check: it tells you what is missing, links the commands, and offers to open the dashboard. (Do not use `npx`: its cache is temporary, and Tusk refuses to link into it.)
+</details>
+
+<details>
+<summary><b>git</b></summary>
+
+```sh
+git clone https://github.com/dexterhere/tusk.git ~/.local/share/tusk && ~/.local/share/tusk/bin/tusk setup
+```
+</details>
+
+**Needs:** Linux · `python3` 3.10+ · `git` · `bwrap` (bubblewrap) · one logged-in agent CLI (`claude`, `codex` or `opencode`) · [Claude Code](https://claude.com/claude-code) for the slash commands. Not sure? Run `tusk doctor`: it lists what is missing and the exact fix.
+
+## Your first run
+
+```text
+cd your-project        # the app you want to test
+claude                 # open Claude Code here
+/uat-full              # Tusk asks 4-5 questions, then does the rest
+```
+
+1. **Where to run:** this computer or an ssh host.
+2. **Your team:** one orchestrator and at least one worker, the same model or different ones. Each model is pinged before use.
+3. **How to start your app:** command, health URL, **fake** test accounts only.
+4. **Watch:** open `http://127.0.0.1:7777`. It shows who tests what, findings, the fix cycle and the audit log.
+5. **Decide:** you get a report and a list of problems. Say which fixes may start: some, all or none.
+
+## What do you want to do?
+
+| I want to... | Do this |
+|---|---|
+| Run everything and just answer questions | `/uat-full` |
+| Go step by step | `/uat-init` → `/uat-plan` → `/uat-execute` → `/uat-feedback` → `/uat-fix` |
+| See where I am | `/uat` or the dashboard's **Journey** page |
+| Change the agents or models | `/uat-full reconfigure`, or the dashboard's **Team** page then `/uat-full apply` |
+| Test on another machine | choose "ssh host" in `/uat-init` ([how](#where-it-runs)) |
+| Add an agent that is not claude/codex/opencode | [Any agent](#any-agent-not-only-three) |
+| Check my machine | `tusk doctor` |
+| Update or remove Tusk | `tusk update` · `tusk uninstall` |
+| Report a security problem | [SECURITY.md](SECURITY.md) |
+| Contribute | [CONTRIBUTING.md](CONTRIBUTING.md) |
+
+<details>
+<summary><b>All <code>tusk</code> commands</b></summary>
+
+| Command | Does |
+|---|---|
+| `tusk setup` | Guided: check the machine, link commands, offer the dashboard |
+| `tusk doctor` | List requirements; exit 1 if a required one is missing |
+| `tusk install` / `uninstall` | Link / unlink the `/uat*` commands (only links that point at this checkout) |
+| `tusk dashboard [--root D] [--port N]` | Start the live dashboard for a project |
+| `tusk token` | Print the dashboard's edit token (never paste it into chat) |
+| `tusk update` | `git pull --ff-only`, then re-link |
+</details>
+
+**Safe by default:** tester commands run in a bubblewrap sandbox on disposable copies of your app; secrets never go to agents; the dashboard listens on 127.0.0.1 only; every phase, verdict and fix is in a tamper-evident audit log; nothing is fixed, pushed or deployed without your yes.
+
+---
 
 ## How it works
 
@@ -65,7 +139,9 @@ Swarm size is bounded by the machine that runs the tests (`scripts/hostinfo.py`)
 
 
 
-## Knowledge base and the fix cycle
+<details>
+<summary><b>Knowledge base and the fix cycle</b></summary>
+
 
 `.uat/kb/` (set `kb.dir` to move it inside the project, e.g. to commit it) holds `graph.json` (a few KB) and `DIGEST.md` (60 lines, for an agent to read first). Nodes: issues, files, rules, areas, pinned repro tests, fixes. Links: issue in file, issue violates rule, test guards issue, fix resolves issue, fix touches file, and `suspected_cause` when a new issue shows up in code an earlier fix touched.
 
@@ -76,7 +152,9 @@ find (execute) -> report + kb ingest -> you approve in chat -> kb impact (what e
 ```
 
 Issue status: open, approved, fixing, fixed (proven, waiting), verified (passed again in a later run), regressed, wontfix, not_seen. In ssh mode the graph lives on the orchestrating computer and is never overwritten by the host mirror; testers on the host only see the behaviour-only re-verify list in their brief. Testers stay blind to code: `kb.py link` (done in `/uat-feedback`) and `kb.py fixed` add the code locations.
-## How trust works
+<details>
+<summary><b>How trust works</b></summary>
+
 
 - **Lanes.** One tester = one lane: its own copy of the workspace, its own port, its own app process. Testers never share state, so a failure is theirs to explain.
 - **Sandbox.** Agent CLIs, replayed repro commands and the app itself run under bubblewrap: read-only system allowlist (no `/run`, no docker socket), empty `$HOME`
@@ -94,6 +172,8 @@ Issue status: open, approved, fixing, fixed (proven, waiting), verified (passed 
 - **Fix queue.** Every accepted result is `proposed`. Approval is bound to the finding's content digest; if it changes, the item is `proposed` again.
 - **SSH host** is trusted to execute, not to decide: only agent findings, events, replays and the ledger are mirrored back (allowlist, no symlinks, normalised
   permissions); clusters, verdicts, plan, fix queue and report are never overwritten from the host.
+</details>
+</details>
 
 ## Layout
 
@@ -101,9 +181,12 @@ Issue status: open, approved, fixing, fixed (proven, waiting), verified (passed 
 
 Config: `uat.defaults.json`, overridden by `<repo>/.uat/uat.json`. Test: `UAT_STATE_DIR=$(mktemp -d) python3 -m unittest discover -s tests`. Install: [docs/INSTALL.md](docs/INSTALL.md).
 
-## Audit log integrity
+<details>
+<summary><b>Audit log integrity</b></summary>
+
 
 `.uat/audit.jsonl` is hash-chained and its latest head is also kept in `~/.local/state/uat/` (override with `UAT_STATE_DIR`). `python3 scripts/audit.py verify` checks both. A deleted, truncated or rewritten log fails verification. If you wipe `.uat` on purpose, run `python3 scripts/audit.py reset` once. This is not a MAC: the same OS user can alter both copies. Events recorded on an SSH host (`events.host.jsonl`) are not part of the chain.
+</details>
 
 ## Any agent, not only three
 
@@ -113,11 +196,14 @@ Testers, verifiers and fixers run through `scripts/harness.py`. `claude`, `codex
 
 The full cycle, what is recorded at each step, and how to plug in any agent harness: `docs/JOURNEY.md`. Agent avatars are DiceBear "Gaze" (CC0) and icons are Iconoir (MIT), both vendored in `web/vendor/` (see the README there): the dashboard makes no requests to the internet.
 
-## Team and the one dashboard write
+<details>
+<summary><b>Team and the one dashboard write</b></summary>
+
 
 `.uat/team.json` holds one orchestrator and one or more workers (roles `tester`, `verifier`, `fixer`; one worker may hold all three; any worker may use the same program and model as the orchestrator). `scripts/team.py` validates and applies it.
 
 The dashboard's only POST is `/api/team/propose`. Guards, all enforced server-side (see `tests/test_team.py`): loopback-only, `Host` check, exact `Origin`, `Content-Type: application/json` plus a custom header (no cross-site form can send it), a per-process random edit token compared in constant time (kept in an owner-only file, read with `python3 scripts/team.py token`; never shown in the page or chat), 8 KB body cap, 10 proposals a minute, strict schema, program names from the harness registry only, **models only from the configured list** (nothing free-typed reaches a command line), no command templates, paths or secrets. It writes `.uat/team.pending.json` and one audit record; it cannot change `team.json`, `uat.json` or run anything. Applying (ping every model, write config, audit) is done by the orchestrator in chat. Residual risk: anyone who can read your owner-only state files or run as you can already do more than this.
+</details>
 
 ## Project
 

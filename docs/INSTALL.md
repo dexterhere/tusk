@@ -18,23 +18,19 @@ Install bubblewrap: `sudo pacman -S bubblewrap` (Arch/Omarchy) or `sudo apt inst
 
 Disk and memory: about 10 GB free and 4 GB RAM on the machine that runs the tests (checked for you by `python3 scripts/hostinfo.py`).
 
-## 2. Get it
+## 2. Install (pick one)
 
 ```sh
-git clone https://github.com/dexterhere/tusk.git ~/Work/uat
-cd ~/Work/uat
-python3 scripts/hostinfo.py        # prints what this machine can run; look for "bwrap" and your agent CLIs
+curl -fsSL https://raw.githubusercontent.com/dexterhere/tusk/main/install.sh | sh     # clones to ~/.local/share/tusk
+npm i -g @dexterhere/tusk && tusk setup                                                # needs Node 18+ and the package to be published
+git clone https://github.com/dexterhere/tusk.git ~/.local/share/tusk && ~/.local/share/tusk/bin/tusk setup
 ```
 
-Cloning elsewhere is fine. Then tell the skills where it is: `export UAT_HOME=/path/to/tusk` in your shell profile (the default is `~/Work/uat`).
+`tusk doctor` checks the requirements above and prints the exact fix for anything missing.
 
-## 3. Install the Claude Code skills
+## 3. What install does
 
-```sh
-for s in skills/*; do ln -sfn "$PWD/$s" ~/.claude/skills/$(basename $s); done
-```
-
-This links `/uat`, `/uat-full`, `/uat-init`, `/uat-plan`, `/uat-execute`, `/uat-feedback`, `/uat-fix` and `/uat-status`. Restart Claude Code and type `/uat` to confirm they appear. To remove them: delete those symlinks from `~/.claude/skills/`.
+`tusk install` creates symlinks only: `~/.tusk` pointing at the checkout, and `~/.claude/skills/uat*` pointing at its `skills/`. It never overwrites a real file or folder (it says SKIPPED) and `tusk uninstall` removes only links that point at this checkout. Restart Claude Code and type `/uat` to confirm. To use another location, set `UAT_HOME=/path` (skills default to `~/.tusk`).
 
 ## 4. Check it works (no agent, no network)
 
@@ -60,8 +56,8 @@ Prefer step by step: `/uat-init`, `/uat-plan`, `/uat-execute`, `/uat-feedback`, 
 
 ## 6. Dashboard and team changes
 
-- Start or restart: `python3 $UAT_HOME/scripts/dashboard.py --root .` (add `--port N`). It listens on 127.0.0.1 only.
-- Change the team: on the **Team** page choose from the listed programs and models and save a *proposal*. You need the edit token: `python3 $UAT_HOME/scripts/team.py token`. Then tell the orchestrator `/uat-full apply`. The page cannot change anything by itself.
+- Start or restart: `tusk dashboard` (add `--port N`). It listens on 127.0.0.1 only.
+- Change the team: on the **Team** page choose from the listed programs and models and save a *proposal*. You need the edit token: `tusk token`. Then tell the orchestrator `/uat-full apply`. The page cannot change anything by itself.
 - The tab icon, theme and Figtree font are served locally; the page makes no outside requests.
 
 ## 7. Settings you may want
@@ -91,4 +87,4 @@ Put overrides in `<project>/.uat/uat.json` (they merge over `uat.defaults.json`)
 
 ## 9. Uninstall
 
-Remove the `~/.claude/skills/uat*` symlinks, delete the checkout, and delete `.uat/` inside each project. Audit anchors live in `~/.local/state/uat/`.
+Run `tusk uninstall`, delete the checkout, and delete `.uat/` inside each project. Audit anchors live in `~/.local/state/uat/`.
