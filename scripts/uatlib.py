@@ -285,16 +285,29 @@ def audit(r, actor, type_, **data):
         last = None
         for ln in f:
             last = ln
+        a = _anchor(r)
+        recs = audit_read(r) if last else []
+        adopted = None
+        if last and a.exists():
+            if not _anchor_ok(a, recs):                   # never advance the anchor over a log that no longer matches it
+                a.with_suffix(".tamper").write_text(f"seen {time.time():.0f}\n")
+        elif last:
+            adopted = len(recs)                           # legacy log with no anchor: adopt it, visibly, so it is not silent
         prev = json.loads(last)["hash"] if last else "0" * 64
         seq = (json.loads(last)["seq"] + 1) if last else 1
-        rec = {"seq": seq, "ts": round(time.time(), 2), "actor": str(actor)[:60], "type": str(type_)[:40], "data": data, "prev": prev}
-        rec["hash"] = sha(prev + json.dumps({k: rec[k] for k in ("seq", "ts", "actor", "type", "data")}, sort_keys=True, separators=(",", ":")))
-        f.write(json.dumps(rec, separators=(",", ":")) + "\n")
+        for t_, d_ in (([("audit_anchor_adopted", {"records": adopted})] if adopted else []) + [(type_, data)]):
+            rec = {"seq": seq, "ts": round(time.time(), 2), "actor": str(actor)[:60] if t_ == type_ else "uatlib", "type": str(t_)[:40], "data": d_, "prev": prev}
+            rec["hash"] = sha(prev + json.dumps({k: rec[k] for k in ("seq", "ts", "actor", "type", "data")}, sort_keys=True, separators=(",", ":")))
+            f.write(json.dumps(rec, separators=(",", ":")) + "\n")
+            prev, seq = rec["hash"], seq + 1
         f.flush()
-        try:
-            _anchor(r).write_text(f"{seq} {rec['hash']}\n")
-        except OSError:
-            pass
+        if not a.with_suffix(".tamper").exists():
+            try:
+                tmp = a.with_suffix(".tmp")
+                tmp.write_text(f"{seq - 1} {prev}\n")
+                os.replace(tmp, a)
+            except OSError:
+                pass
 
 
 def _anchor(r):
@@ -304,6 +317,14 @@ def _anchor(r):
     d = Path(os.environ.get("UAT_STATE_DIR") or Path.home() / ".local" / "state" / "uat")
     d.mkdir(parents=True, exist_ok=True)
     return d / (sha(str(Path(r).resolve()))[:16] + ".head")
+
+
+def _anchor_ok(a, recs):
+    try:
+        seq, head = a.read_text().split()
+        return 0 < int(seq) <= len(recs) and recs[int(seq) - 1].get("hash") == head
+    except (OSError, ValueError):
+        return False
 
 
 def audit_read(r, limit=None):
@@ -325,13 +346,9 @@ def audit_verify(r):
         if rec.get("prev") != prev or rec.get("hash") != want or rec.get("seq") != n:
             return False, n, prev, n
         prev = rec["hash"]
-    try:
-        seq, head = _anchor(r).read_text().split()
-        recs = audit_read(r)
-        if int(seq) > len(recs) or recs[int(seq) - 1].get("hash") != head:
-            return False, n, prev, min(n, int(seq))      # tail truncated, or history rewritten after the anchor was taken
-    except (OSError, ValueError):
-        pass
+    anchor = _anchor(r)
+    if n and (anchor.with_suffix(".tamper").exists() or not anchor.exists() or not _anchor_ok(anchor, audit_read(r))):
+        return False, n, prev, 0 if not anchor.exists() else n   # bad_seq 0 = no anchor (deleted, or log never written by this version)
     return True, n, prev, None
 
 

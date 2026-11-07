@@ -47,6 +47,34 @@ class AuditChain(unittest.TestCase):
             p.write_text("\n".join(p.read_text().splitlines()[:2]) + "\n")   # still a valid chain, but shorter than the anchor
             self.assertFalse(uatlib.audit_verify(r)[0])
 
+    def test_missing_anchor_is_not_ok_and_next_write_adopts_visibly(self):
+        with tempfile.TemporaryDirectory() as t:
+            r = project(t)
+            uatlib.audit(r, "orch", "t")
+            uatlib._anchor(r).unlink()
+            self.assertEqual(uatlib.audit_verify(r)[3], 0)
+            self.assertFalse(uatlib.audit_verify(r)[0])
+            uatlib.audit(r, "orch", "t")
+            self.assertTrue(uatlib.audit_verify(r)[0])
+            self.assertIn("audit_anchor_adopted", [x["type"] for x in uatlib.audit_read(r)])
+
+    def test_anchor_not_advanced_over_tampered_log(self):
+        with tempfile.TemporaryDirectory() as t:
+            r = project(t)
+            for i in range(3):
+                uatlib.audit(r, "orch", "t", n=i)
+            p = r / ".uat" / "audit.jsonl"
+            p.write_text("\n".join(p.read_text().splitlines()[:2]) + "\n")
+            uatlib.audit(r, "orch", "t", n=9)          # attacker-triggered write must not launder the truncation
+            self.assertFalse(uatlib.audit_verify(r)[0])
+
+    def test_malformed_anchor_fails(self):
+        with tempfile.TemporaryDirectory() as t:
+            r = project(t)
+            uatlib.audit(r, "orch", "t")
+            uatlib._anchor(r).write_text("garbage")
+            self.assertFalse(uatlib.audit_verify(r)[0])
+
     def test_concurrent_writers_keep_chain(self):
         with tempfile.TemporaryDirectory() as t:
             r = project(t)
