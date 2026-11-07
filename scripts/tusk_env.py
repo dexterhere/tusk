@@ -4,13 +4,13 @@
 A lane = its own copy of the golden workspace + its own port (+ its own app process). One tester runs in one lane, so parallel
 testers never share state, and a tamper check (git status of the lane) is attributable to exactly one agent.
 
-  uat_env.py guard                       # refuse prod-looking hosts or live keys
-  uat_env.py workspace [--finish]        # copy repo -> .uat/workspace (secrets excluded), run setup_cmd, git baseline
-  uat_env.py lanes up|down|status        # all lanes (count = swarm.max_parallel)
-  uat_env.py lane reset L1 [--state-only]# back to baseline (code+state, or state only), restart the app
-  uat_env.py lane tamper L1              # report and revert edits to the lane's code
-  uat_env.py lane sync L1 SRC_DIR        # put a fixed source tree into a lane (fix proof), restart
-Config: .uat/uat.json "env" block (see uat.defaults.json). start_cmd may use {port} {lane} (also $UAT_PORT $UAT_LANE).
+  tusk_env.py guard                       # refuse prod-looking hosts or live keys
+  tusk_env.py workspace [--finish]        # copy repo -> .tusk/workspace (secrets excluded), run setup_cmd, git baseline
+  tusk_env.py lanes up|down|status        # all lanes (count = swarm.max_parallel)
+  tusk_env.py lane reset L1 [--state-only]# back to baseline (code+state, or state only), restart the app
+  tusk_env.py lane tamper L1              # report and revert edits to the lane's code
+  tusk_env.py lane sync L1 SRC_DIR        # put a fixed source tree into a lane (fix proof), restart
+Config: .tusk/tusk.json "env" block (see tusk.defaults.json). start_cmd may use {port} {lane} (also $TUSK_PORT $TUSK_LANE).
 """
 import argparse
 import fnmatch
@@ -28,11 +28,11 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from uatlib import HOME, config, emit, lane_names, lane_port, lane_url, udir  # noqa: E402
+from tusklib import HOME, config, emit, lane_names, lane_port, lane_url, udir  # noqa: E402
 
 URL_RE = re.compile(r"\b(postgres(?:ql)?|mysql|mariadb|mongodb(?:\+srv)?|redis|rediss|amqps?|mssql)://(?:[^\s'\"<>/@]*@)?([A-Za-z0-9_.${}-]+)")
 KEY_RE = re.compile(r"(sk_live_[A-Za-z0-9]{10,}|AKIA[0-9A-Z]{16}|xox[bp]-[A-Za-z0-9-]{10,}|ghp_[A-Za-z0-9]{30,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)")
-COPY_IGNORE = {".git", ".uat", "node_modules", "target", ".venv", "venv", "__pycache__", "graphify-out", ".dart_tool", ".next", ".aws", ".ssh", ".gnupg", ".docker", ".kube"}
+COPY_IGNORE = {".git", ".tusk", "node_modules", "target", ".venv", "venv", "__pycache__", "graphify-out", ".dart_tool", ".next", ".aws", ".ssh", ".gnupg", ".docker", ".kube"}
 SECRET_FILES = (".env", ".env.*", "*.pem", "*.key", "id_rsa*", "id_ed25519*", "*.p12", "*.keystore", "credentials*.json", "service-account*.json", ".npmrc", ".netrc", ".pypirc", ".git-credentials", "*.tfvars", "*.tfstate", ".htpasswd")
 KEEP_FILES = (".env.example", ".env.sample", ".env.template")
 
@@ -96,7 +96,7 @@ class Lane:
         tools = ":".join(str(udir(self.r) / "tools" / s) for s in ("venv/bin", "node_modules/.bin", "bin"))
         keep["PATH"] = tools + ":" + keep.get("PATH", "")
         keep.update({k: self.fmt(str(v)) for k, v in self.cfg["env"]["vars"].items()})
-        keep.update({"UAT_ENV": "1", "UAT_LANE": self.name, "UAT_PORT": str(self.port), "UAT_BASE_URL": self.base_url, "UAT_WS": str(self.ws)})
+        keep.update({"TUSK_ENV": "1", "TUSK_LANE": self.name, "TUSK_PORT": str(self.port), "TUSK_BASE_URL": self.base_url, "TUSK_WS": str(self.ws)})
         return keep
 
     def pid(self):
@@ -117,7 +117,7 @@ class Lane:
         if not e["start_cmd"] or self.pid():
             return
         self.dir.mkdir(parents=True, exist_ok=True)
-        # start_cmd is the user's own command from .uat/uat.json (approved in /uat-init). The app is the thing testers attack and
+        # start_cmd is the user's own command from .tusk/tusk.json (approved in /tusk-init). The app is the thing testers attack and
         # it executes code from the lane workspace that testers can write to, so it runs inside the same sandbox (sandbox.app=false to opt out,
         # e.g. for docker-compose apps).
         cmd = ["bash", "-c", self.fmt(e["start_cmd"])]
@@ -182,7 +182,7 @@ class Lane:
     def sync(self, src):
         """Fix proof: a fixed source tree over the lane (state paths kept), then restart."""
         self.down()
-        ex = [f"--exclude={x}" for x in (".git", ".uat", "node_modules", "target", ".venv", *self.tracked())]
+        ex = [f"--exclude={x}" for x in (".git", ".tusk", "node_modules", "target", ".venv", *self.tracked())]
         subprocess.run(["rsync", "-a", "--delete", *ex, f"{src.rstrip('/')}/", f"{self.ws}/"], check=True)
         self.up()
 
@@ -198,7 +198,7 @@ def healthy(url):
 
 
 def sh(cmd, cwd, env, check=True):
-    # cmd comes from the project's own uat.json (user-approved in /uat-init), not from agents.
+    # cmd comes from the project's own tusk.json (user-approved in /tusk-init), not from agents.
     p = subprocess.run(cmd, shell=True, cwd=cwd, env=env)
     if check and p.returncode:
         sys.exit(f"command failed ({p.returncode}): {cmd}")
@@ -208,7 +208,7 @@ def sh(cmd, cwd, env, check=True):
 def golden_env(r, cfg):
     keep = {k: os.environ[k] for k in ("PATH", "HOME", "LANG", "TERM") if k in os.environ}
     keep.update(cfg["env"]["vars"])
-    keep.update({"UAT_ENV": "1", "UAT_WS": str(ws(r))})
+    keep.update({"TUSK_ENV": "1", "TUSK_WS": str(ws(r))})
     return keep
 
 
@@ -223,7 +223,7 @@ def stage(r, cfg):
         # No git file list (not a repo, or everything is ignored by an outer repo). The denylist alone cannot know which files are
         # ignored secrets, so this is opt-in per project, never silent.
         if not cfg["env"]["allow_denylist_copy"]:
-            sys.exit("stage: git lists no files for this directory. Run /uat-init from the repo root, or set env.allow_denylist_copy=true to copy "
+            sys.exit("stage: git lists no files for this directory. Run /tusk-init from the repo root, or set env.allow_denylist_copy=true to copy "
                      "everything except secret-looking names (ignored files such as local .env variants WILL be copied).")
         shutil.copytree(r, w, ignore=ignore_fn, symlinks=True)
         return
@@ -252,9 +252,9 @@ def finish(r, cfg):
 
 def lanes_up(r, cfg):
     names = lane_names(cfg)
-    port_free = "{port}" in cfg["env"]["start_cmd"] or "UAT_PORT" in cfg["env"]["start_cmd"]
+    port_free = "{port}" in cfg["env"]["start_cmd"] or "TUSK_PORT" in cfg["env"]["start_cmd"]
     if len(names) > 1 and cfg["env"]["start_cmd"] and not port_free:
-        sys.exit("start_cmd has no {port} / $UAT_PORT, so lanes would collide on one port. Make the app take its port from it, or set swarm.max_parallel=1.")
+        sys.exit("start_cmd has no {port} / $TUSK_PORT, so lanes would collide on one port. Make the app take its port from it, or set swarm.max_parallel=1.")
     with cf.ThreadPoolExecutor(len(names)) as ex:
         list(ex.map(lambda n: Lane(r, cfg, n).reset(), names))
     for n in names:

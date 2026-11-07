@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Validate finding files against resources/finding-schema.json. Invalid ones move to
-.uat/rejected/<agent>/ with a .reason file so cheap-model junk never reaches replay.
+.tusk/rejected/<agent>/ with a .reason file so cheap-model junk never reaches replay.
 
   validate_findings.py [--root D]
 """
@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from uatlib import config, emit, finding_files, finding_schema, jload, udir, validate  # noqa: E402
+from tusklib import config, emit, finding_files, finding_schema, jload, udir, validate  # noqa: E402
 
 
 def main():

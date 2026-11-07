@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Install catalog tools into <root>/.uat/tools (isolated; nothing global).
+"""Install catalog tools into <root>/.tusk/tools (isolated; nothing global).
 
-  uat_tools.py list    [--root D]
-  uat_tools.py install NAME... [--root D] [--dry-run]
-  uat_tools.py env     [--root D]     # PATH prefix for agents / replay
+  tusk_tools.py list    [--root D]
+  tusk_tools.py install NAME... [--root D] [--dry-run]
+  tusk_tools.py env     [--root D]     # PATH prefix for agents / replay
 Docker images pull lazily on first run unless installed here.
 """
 import argparse
@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from uatlib import HOME, jload  # noqa: E402
+from tusklib import HOME, jload  # noqa: E402
 
 
 def catalog():
@@ -42,7 +42,7 @@ def main():
     ap.add_argument("--root", default=os.getcwd())
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
-    tools = Path(a.root).resolve() / ".uat" / "tools"
+    tools = Path(a.root).resolve() / ".tusk" / "tools"
     cat = catalog()
     if a.cmd == "list":
         for n, t in cat.items():

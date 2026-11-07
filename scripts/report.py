@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Build the fix-ready report from clusters (+ optional verifier verdicts), and pin regression tests.
 
-Inputs : .uat/clusters.json, .uat/verdicts.json  {"C-abc123": {"verdict": "accept|reject", "note": "..."}}
-Outputs: .uat/report/{report.md, findings.json, junit.xml}, .uat/regression/<cid>/ (repro files + finding.json)
-Baseline: .uat/baseline.json (fingerprints) -> new / still-open / fixed vs the previous saved run.
+Inputs : .tusk/clusters.json, .tusk/verdicts.json  {"C-abc123": {"verdict": "accept|reject", "note": "..."}}
+Outputs: .tusk/report/{report.md, findings.json, junit.xml}, .tusk/regression/<cid>/ (repro files + finding.json)
+Baseline: .tusk/baseline.json (fingerprints) -> new / still-open / fixed vs the previous saved run.
 
   report.py [--root D] [--save-baseline]
 """
@@ -16,7 +16,7 @@ from pathlib import Path
 from xml.sax.saxutils import escape, quoteattr
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from uatlib import CTRL, SEV, clean, fence, jdump, jload, udir  # noqa: E402
+from tusklib import CTRL, SEV, clean, fence, jdump, jload, udir  # noqa: E402
 
 def mdesc(text):
     """Single-line agent text into Markdown: no markup, links or HTML can come through."""
@@ -58,7 +58,7 @@ def main():
             "rule_id": clean(c["rule_id"], 40), "confidence": {"agents": c["agreement"], "families": c["families"], "replay": c["replay"], "fail_rate": c["fail_rate"], "intermittent": c["replay"] == "flaky"}, "kind": c["kind"],
             "expected": clean(lead.get("expected"), 600), "actual": clean(lead.get("actual"), 600), "repro": {"kind": lead.get("repro", {}).get("kind"), "cmd": lead.get("repro", {}).get("cmd", "")[:2000]},
             "regression_dir": str(reg.relative_to(r)), "evidence": clean(lead.get("evidence"), 600), "suspect": lead.get("suspect"),
-            "acceptance": f"python3 scripts/uat.py replay --root . --only {c['cid']} --passing --keep-code   # exits 0 once fixed",
+            "acceptance": f"python3 scripts/tusk.py replay --root . --only {c['cid']} --passing --keep-code   # exits 0 once fixed",
             "note": clean(c["note"], 200),
         })
     base = jload(u / "baseline.json", None)
@@ -97,11 +97,11 @@ def main():
     cases = "".join(
         f"<testcase classname={quoteattr(i['area'])} name={quoteattr(i['cid'] + ' ' + i['title'])}><failure message={quoteattr(i['severity'])}>{escape(CTRL.sub('', str(i['actual'])))}</failure></testcase>"
         for i in items)
-    (out / "junit.xml").write_text(f'<?xml version="1.0"?><testsuite name="uat" tests="{len(items)}" failures="{len(items)}">{cases}</testsuite>\n')
+    (out / "junit.xml").write_text(f'<?xml version="1.0"?><testsuite name="tusk" tests="{len(items)}" failures="{len(items)}">{cases}</testsuite>\n')
     if a.save_baseline:
         jdump(u / "baseline.json", sorted(cur))
     import fixq
-    from uatlib import audit_verify, coverage, emit
+    from tusklib import audit_verify, coverage, emit
     fixq.sync(r)
     import kb
     kb.ingest(r)

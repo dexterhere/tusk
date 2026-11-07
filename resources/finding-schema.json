@@ -1,5 +1,5 @@
 {
-  "$comment": "Contract for one finding file: .uat/agents/<agent>/findings/F-<n>.json. repro.cmd asserts CORRECT behaviour: exit non-zero while the bug exists, exit 0 once fixed. Runs with cwd = the agent dir.",
+  "$comment": "Contract for one finding file: .tusk/agents/<agent>/findings/F-<n>.json. repro.cmd asserts CORRECT behaviour: exit non-zero while the bug exists, exit 0 once fixed. Runs with cwd = the agent dir.",
   "type": "object",
   "required": [
     "id",

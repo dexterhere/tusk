@@ -3,7 +3,7 @@
 
 A harness is a command template plus a few facts. Three ship verified on this machine (claude, codex, opencode). Others are presets that
 follow each tool's documented non-interactive flags but are NOT verified here: run `run_agent.py --ping --family <name> --model <m>` first.
-Add your own, or override a preset, in .uat/uat.json:
+Add your own, or override a preset, in .tusk/tusk.json:
 
   "harness": {"mycli": {"cmd": ["mycli", "--model", "{model}", "--yolo", "-p", "{prompt}"],
                         "prompt": "arg",                       # arg (default) | stdin | file ({prompt_file})
@@ -25,7 +25,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from uatlib import config  # noqa: E402
+from tusklib import config  # noqa: E402
 
 BUILTIN = {
     "claude": {"cmd": ["claude", "-p", "{prompt}", "--model", "{model}", "--permission-mode", "acceptEdits", "--allowedTools", "Bash Read Write Edit Glob Grep"], "verified": True},
@@ -54,7 +54,7 @@ def registry(cfg):
 def spec(cfg, family):
     s = registry(cfg).get(family)
     if not s or not s.get("cmd"):
-        raise SystemExit(f"unknown agent harness {family!r}. Known: {', '.join(sorted(registry(cfg)))}. Define it under \"harness\" in .uat/uat.json (see scripts/harness.py).")
+        raise SystemExit(f"unknown agent harness {family!r}. Known: {', '.join(sorted(registry(cfg)))}. Define it under \"harness\" in .tusk/tusk.json (see scripts/harness.py).")
     return s
 
 

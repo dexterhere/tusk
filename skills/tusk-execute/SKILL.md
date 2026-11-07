@@ -1,20 +1,20 @@
 ---
-name: uat-execute
-description: Stage 3 of UAT Swarm. Runs the approved charters with a cheap-model tester swarm (Claude Haiku, Codex, OpenCode free models) in parallel, each tester in its own sandboxed lane, with schema validation and stress replay after every wave. Use after /uat-plan is approved.
+name: tusk-execute
+description: Stage 3 of Tusk. Runs the approved charters with a cheap-model tester swarm (Claude Haiku, Codex, OpenCode free models) in parallel, each tester in its own sandboxed lane, with schema validation and stress replay after every wave. Use after /tusk-plan is approved.
 disable-model-invocation: true
 ---
 
-# /uat-execute: run the swarm in waves
+# /tusk-execute: run the swarm in waves
 
-`S=${UAT_HOME:-$HOME/.tusk}`. Requires phase `planned`. Caveman chat. You are the orchestrator; testers are blind and cheap, so rigor comes from narrow charters, schema, isolation and replay, not model strength. Call host-side scripts as `python3 $S/scripts/uat.py <script> ... --root .` (works for local and ssh targets).
+`S=${TUSK_HOME:-$HOME/.tusk}`. Requires phase `planned`. Caveman chat. You are the orchestrator; testers are blind and cheap, so rigor comes from narrow charters, schema, isolation and replay, not model strength. Call host-side scripts as `python3 $S/scripts/tusk.py <script> ... --root .` (works for local and ssh targets).
 
 ## 0. Preconditions
-- `uat.py uat_env lanes status` healthy, else `lanes up`. Dashboard running (`/uat dashboard`), tell the user the link.
-- Read `.uat/uat.json` (`swarm`, `models`, `stop`) and `.uat/plan/plan.json`. Pending charters by priority.
-- Phase `executing`; keep `round`, `spent_agents`, `started` in `state.json`. Emit progress for the dashboard: `python3 $S/scripts/uat_event.py emit orchestrator phase text="wave 1: 3 agents" --root .`
+- `tusk.py tusk_env lanes status` healthy, else `lanes up`. Dashboard running (`/tusk dashboard`), tell the user the link.
+- Read `.tusk/tusk.json` (`swarm`, `models`, `stop`) and `.tusk/plan/plan.json`. Pending charters by priority.
+- Phase `executing`; keep `round`, `spent_agents`, `started` in `state.json`. Emit progress for the dashboard: `python3 $S/scripts/tusk_event.py emit orchestrator phase text="wave 1: 3 agents" --root .`
 
 ## 0b. Re-test earlier fixes first (the loop closes here)
-If `.uat/kb/graph.json` lists issues in status `fixed` or `verified` (`python3 $S/scripts/kb.py retest`), replay their pinned repros against the current code before any new wave: `python3 $S/scripts/kb.py retest --run --root .`. Passed -> `verified`. Failed -> `regressed`, back in the fix queue as `proposed`. Tell the user which. `make_brief.py` also adds a "previously fixed, re-verify these first" list (behaviour only, no code locations) to briefs for the same area, so testers check fixed behaviour again with fresh eyes.
+If `.tusk/kb/graph.json` lists issues in status `fixed` or `verified` (`python3 $S/scripts/kb.py retest`), replay their pinned repros against the current code before any new wave: `python3 $S/scripts/kb.py retest --run --root .`. Passed -> `verified`. Failed -> `regressed`, back in the fix queue as `proposed`. Tell the user which. `make_brief.py` also adds a "previously fixed, re-verify these first" list (behaviour only, no code locations) to briefs for the same area, so testers check fixed behaviour again with fresh eyes.
 
 ## 1. Assign agents and lanes
 Agent ids `A1..An`. Agent `i`: family = `families[i % 3]` (only working ones), next pending charter whose lens fits, rotating lenses so each family gets each lens over time. Models come from `models.<family>.cheap` (list = fallback order). Never exceed `swarm.max_agents`.
@@ -24,17 +24,17 @@ Brief: `python3 $S/scripts/make_brief.py --agent A4 --charter CH-07 --lane L2 --
 ## 2. Dispatch a wave
 Every family, including Claude Haiku, goes through the same runner, so confinement, timeout, tamper check, ledger and live events are identical (do NOT use the Agent tool for testers):
 ```
-python3 $S/scripts/uat.py run_agent --id A4 --lane L2 --family codex --model "gpt-5.6-luna" --brief .uat/agents/A4/brief.md --root .
+python3 $S/scripts/tusk.py run_agent --id A4 --lane L2 --family codex --model "gpt-5.6-luna" --brief .tusk/agents/A4/brief.md --root .
 ```
 Run the wave's commands as parallel background Bash calls; wait for the completion notifications, do not poll or sleep. Exit code 2 = the agent edited the system under test: it was reverted and its findings quarantined, note it. Honour `stop.agent_timeout_s` and `stop.budget_wall_s`. Wave 0 may be the tool lane `CH-T1` (`agents/tool-runner.md`) in its own lane.
 
 ## 3. After every wave: judge by script, not by model
 ```
 python3 $S/scripts/validate_findings.py --root .
-python3 $S/scripts/uat.py replay --root .      # parallel across lanes; stress runs for concurrency findings; sandboxed
+python3 $S/scripts/tusk.py replay --root .      # parallel across lanes; stress runs for concurrency findings; sandboxed
 python3 $S/scripts/dedupe.py --root .
 ```
-New clusters = fingerprints not seen before with verdict `accept`, `needs_verifier`, or `watch`. Append to `.uat/rounds.jsonl` one JSON line: `{"round":n,"agents":k,"findings":f,"new_clusters":c,"wall_s":s}`.
+New clusters = fingerprints not seen before with verdict `accept`, `needs_verifier`, or `watch`. Append to `.tusk/rounds.jsonl` one JSON line: `{"round":n,"agents":k,"findings":f,"new_clusters":c,"wall_s":s}`.
 
 ## 4. Adapt
 - **Yield-driven expansion**: accepted areas get follow-up charters (neighbouring rules, another lens, a different family than the first finder).
@@ -44,4 +44,4 @@ New clusters = fingerprints not seen before with verdict `accept`, `needs_verifi
 - Do not analyse findings yourself here; the report stage does that.
 
 ## 5. Finish
-Phase `executed`. Print: rounds, agents per family/model, wall time, clusters by verdict, dropped models, tamper events, sandbox level. Next: `/uat-feedback`.
+Phase `executed`. Print: rounds, agents per family/model, wall time, clusters by verdict, dropped models, tamper events, sandbox level. Next: `/tusk-feedback`.

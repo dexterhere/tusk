@@ -11,7 +11,7 @@ from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from uatlib import agent_meta, finding_files, jload, replay_path, trusted, udir  # noqa: E402
+from tusklib import agent_meta, finding_files, jload, replay_path, trusted, udir  # noqa: E402
 
 
 def main():

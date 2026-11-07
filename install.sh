@@ -10,4 +10,4 @@ if [ -d "$DIR/.git" ]; then git -C "$DIR" pull --ff-only; else git clone --depth
 "$DIR/bin/tusk" install
 echo
 echo "Optional: put 'tusk' on your PATH:  ln -sf $DIR/bin/tusk ~/.local/bin/tusk"
-echo "Then run /uat-full in Claude Code inside the project you want to test."
+echo "Then run /tusk-full in Claude Code inside the project you want to test."

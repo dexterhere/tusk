@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Render one tester brief from a charter in .uat/plan/plan.json, for one lane. Paths in the brief are the ones the executing machine
-(this one or the SSH host) sees. Also writes .uat/meta/<agent>.json (outside the agent-writable dir), the label the dashboard shows.
+"""Render one tester brief from a charter in .tusk/plan/plan.json, for one lane. Paths in the brief are the ones the executing machine
+(this one or the SSH host) sees. Also writes .tusk/meta/<agent>.json (outside the agent-writable dir), the label the dashboard shows.
 
-  make_brief.py --agent A4 --charter CH-07 --lane L2 --family codex --model gpt-5.6-luna [--root D]   -> .uat/agents/A4/brief.md
+  make_brief.py --agent A4 --charter CH-07 --lane L2 --family codex --model gpt-5.6-luna [--root D]   -> .tusk/agents/A4/brief.md
 plan.json: {"rules":[{id,area,statement,source,confidence}], "charters":[{id,area,lens,rule_ids,entry,tools,leads,notes}]}
 """
 import argparse
@@ -12,7 +12,7 @@ from pathlib import Path
 from string import Template
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from uatlib import config, emit, jdump, jload, lane_url, layout, meta_path, udir  # noqa: E402
+from tusklib import config, emit, jdump, jload, lane_url, layout, meta_path, udir  # noqa: E402
 
 
 def main():
@@ -45,7 +45,7 @@ def main():
         schema=home / "resources" / "finding-schema.json", base_url=lane_url(cfg, a.lane), workspace=rd / "lanes" / a.lane / "ws", agent_dir=rd / "agents" / a.agent,
         entry=ch.get("entry", "see plan"), rules=rule_txt, tools="\n".join(f"- {t}" for t in ch.get("tools", [])) or "- none specified",
         leads="\n".join(f"- {x}" for x in ch.get("leads", [])) or "- none", notes=ch.get("notes", ""), max_findings=cfg["stop"]["max_findings_per_agent"],
-        catalog=home / "resources" / "tool-catalog.json", tools_path=rd / "tools", event=f"python3 {home}/scripts/uat_event.py", kind=cfg["env"]["kind"])
+        catalog=home / "resources" / "tool-catalog.json", tools_path=rd / "tools", event=f"python3 {home}/scripts/tusk_event.py", kind=cfg["env"]["kind"])
     import kb
     rv = kb.reverify_lines(r, ch["area"])
     if rv:      # behaviour that was reported and fixed earlier: look at it first, no code locations given (testers stay blind)

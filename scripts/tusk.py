@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Single entry point: run a toolkit script where the UAT env lives (local or SSH host).
 
-  uat.py <script> [args...] [--root D]       e.g.  uat.py run_agent --id A1 --lane L1 ...   uat.py uat_env lanes up
-Scripts in HOST_SIDE execute on the host and `.uat/` is mirrored back; the rest always run locally on the mirror.
+  tusk.py <script> [args...] [--root D]       e.g.  tusk.py run_agent --id A1 --lane L1 ...   tusk.py tusk_env lanes up
+Scripts in HOST_SIDE execute on the host and `.tusk/` is mirrored back; the rest always run locally on the mirror.
 """
 import os
 import subprocess
@@ -11,9 +11,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import host  # noqa: E402
-from uatlib import CTRL, HOME, config, is_remote, udir  # noqa: E402
+from tusklib import CTRL, HOME, config, is_remote, udir  # noqa: E402
 
-HOST_SIDE = {"run_agent", "replay", "uat_tools", "hostinfo", "uat_env"}
+HOST_SIDE = {"run_agent", "replay", "tusk_tools", "hostinfo", "tusk_env"}
 LOCAL_ENV_CMDS = {"guard"}          # scans the user's repo: always local
 
 
@@ -38,9 +38,9 @@ def local(script, args, r):
 
 def stage_workspace(r, cfg):
     """ssh mode: scrub-copy locally, push, then finish (setup_cmd + git baseline) on the host."""
-    import uat_env
-    uat_env.stage(r, cfg)
-    host.push(cfg, str(udir(r) / "workspace") + "/", ".uat/workspace/", ["--delete"])
+    import tusk_env
+    tusk_env.stage(r, cfg)
+    host.push(cfg, str(udir(r) / "workspace") + "/", ".tusk/workspace/", ["--delete"])
 
 
 def main():
@@ -48,12 +48,12 @@ def main():
         sys.exit(__doc__)
     script, (args, r) = sys.argv[1], split_root(sys.argv[2:])
     cfg = config(r)
-    remote_side = script in HOST_SIDE and not (script == "uat_env" and args[:1] and args[0] in LOCAL_ENV_CMDS)
+    remote_side = script in HOST_SIDE and not (script == "tusk_env" and args[:1] and args[0] in LOCAL_ENV_CMDS)
     if not is_remote(cfg) or not remote_side:
         sys.exit(local(script, args, r))
     if not cfg["target"]["ssh"]["host"]:
         sys.exit("target.mode=ssh but target.ssh.host is empty")
-    if script == "uat_env" and args[:1] == ["workspace"]:
+    if script == "tusk_env" and args[:1] == ["workspace"]:
         stage_workspace(r, cfg)
         args = ["workspace", "--finish"]
     host.sync_toolkit(cfg) if script != "hostinfo" and not (udir(r) / ".toolkit_synced").exists() else None

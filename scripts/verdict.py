@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Record a verifier verdict for a disputed cluster (and audit it). The only supported way to write .uat/verdicts.json.
+"""Record a verifier verdict for a disputed cluster (and audit it). The only supported way to write .tusk/verdicts.json.
 
   verdict.py CID accept|reject "one sentence why" [--by verifier-1 --family claude --model sonnet] [--root D]
 """
@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from uatlib import clean, emit, jdump, jload, udir  # noqa: E402
+from tusklib import clean, emit, jdump, jload, udir  # noqa: E402
 
 
 def main():

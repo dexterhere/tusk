@@ -11,7 +11,7 @@ REPLAY = {
     "not_reproducible": ("The check was repeated and the problem did not appear, so it cannot be proven.", "Kept only if several agents saw it."),
     "error": ("The tester's own check script is broken (it crashed or could not start), so it proves nothing about your app.", "Ignore this finding or re-run the tester."),
     "tamper": ("The tester changed your system under test while checking it. Its changes were undone and its findings set aside.", "Review the agent's log."),
-    "none": ("This finding has not been re-run yet.", "Run /uat-feedback."),
+    "none": ("This finding has not been re-run yet.", "Run /tusk-feedback."),
 }
 VERDICT = {
     "accept": ("Confirmed and queued as a real issue.", ""),
@@ -48,7 +48,7 @@ def agent(status, rc=None, note="", tail="", tamper=False):
     if status in ("queued", "running"):
         return {"plain": "", "next": ""}
     if tamper:
-        return {"plain": RC[2], "next": "Its findings are in .uat/quarantine/."}
+        return {"plain": RC[2], "next": "Its findings are in .tusk/quarantine/."}
     if status == "done":
         return {"plain": "Finished normally.", "next": ""}
     low = (note + " " + tail).lower()
@@ -71,7 +71,7 @@ def audit(ok, bad_seq):
     if ok:
         return {"plain": "No record has been changed or removed.", "next": ""}
     if bad_seq == 0:
-        return {"plain": "The off-project copy of the log's latest position is missing, so the log cannot be proven complete.", "next": "If you wiped .uat on purpose: python3 scripts/audit.py reset"}
+        return {"plain": "The off-project copy of the log's latest position is missing, so the log cannot be proven complete.", "next": "If you wiped .tusk on purpose: python3 scripts/audit.py reset"}
     return {"plain": "A record was edited, removed or cut off after it was written.", "next": "Treat results after that record with caution."}
 
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Headless wave runner: the deterministic part of /uat-execute, for calibration, CI and unattended runs.
+"""Headless wave runner: the deterministic part of /tusk-execute, for calibration, CI and unattended runs.
 
 Assigns (family, model) x charter agents, runs them `max_parallel` at a time (one lane each, sandboxed), then validates, replays and
 dedupes after every wave. No adaptive planning: the orchestrator skill adds that on top.
@@ -16,13 +16,13 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from uatlib import config, emit, exhausted_models, jload, udir  # noqa: E402
+from tusklib import config, emit, exhausted_models, jload, udir  # noqa: E402
 
 S = Path(__file__).resolve().parent
 
 
 def py(script, *args, root):
-    return subprocess.run([sys.executable, str(S / "uat.py"), script, *args, "--root", str(root)], capture_output=True, text=True)
+    return subprocess.run([sys.executable, str(S / "tusk.py"), script, *args, "--root", str(root)], capture_output=True, text=True)
 
 
 def one(root, aid, lane, family, model, charter, cfg):

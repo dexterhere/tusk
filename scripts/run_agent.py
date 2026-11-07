@@ -6,9 +6,9 @@ Every family goes through this one path, so confinement, timeout, tamper check, 
   2. run the CLI sandboxed (writable: its agent dir only), model fallback list, heartbeat events for the dashboard
   3. tamper check on the lane; edits are reverted and the agent's findings are quarantined
 
-  run_agent.py --id A4 --lane L2 --family codex --model gpt-5.6-luna --brief .uat/agents/A4/brief.md
+  run_agent.py --id A4 --lane L2 --family codex --model gpt-5.6-luna --brief .tusk/agents/A4/brief.md
   run_agent.py --ping --family opencode --model opencode/glm-5.3-flash-free
-Exit: 0 ok, 1 agent failed, 2 tamper, 4 every listed model is out of quota (recorded in .uat/model_health.json; do not count it as a clean run).
+Exit: 0 ok, 1 agent failed, 2 tamper, 4 every listed model is out of quota (recorded in .tusk/model_health.json; do not count it as a clean run).
 """
 import argparse
 import json
@@ -25,8 +25,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import harness  # noqa: E402
 import sandbox  # noqa: E402
-from uat_env import Lane  # noqa: E402
-from uatlib import HOME, QUOTA_RE, config, emit, finding_files, mark_exhausted, udir  # noqa: E402
+from tusk_env import Lane  # noqa: E402
+from tusklib import HOME, QUOTA_RE, config, emit, finding_files, mark_exhausted, udir  # noqa: E402
 
 
 def last_line(log):
@@ -94,7 +94,7 @@ def main():
         lane.reset()
         emit(root, a.id, "agent_start", family=a.family, model=a.model.split(",")[0], lane=a.lane, brief=str(d / "brief.md"))
     env = os.environ.copy() if a.ping else sandbox.clean_env(
-        cfg, {"UAT_BASE_URL": lane.base_url, "UAT_WS": str(lane.ws), "UAT_LANE": a.lane, "UAT_AGENT": a.id, "UAT_ROOT": str(root), "UAT_HOME": str(HOME), "HOME": str(Path.home())},
+        cfg, {"TUSK_BASE_URL": lane.base_url, "TUSK_WS": str(lane.ws), "TUSK_LANE": a.lane, "TUSK_AGENT": a.id, "TUSK_ROOT": str(root), "TUSK_HOME": str(HOME), "HOME": str(Path.home())},
         [udir(root) / "tools" / s for s in ("venv/bin", "node_modules/.bin", "bin")])
 
     t0 = time.time()

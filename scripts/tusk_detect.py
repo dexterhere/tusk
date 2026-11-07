@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Scan a repo: size, stack tags, areas, applicable tools, recommended swarm size.
-Writes <root>/.uat/detect.json and prints it. Stdlib only.
+Writes <root>/.tusk/detect.json and prints it. Stdlib only.
 
-  uat_detect.py [--root DIR]
+  tusk_detect.py [--root DIR]
 """
 import argparse
 import math
@@ -14,9 +14,9 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from uatlib import HOME, config, jdump, jload, udir  # noqa: E402
+from tusklib import HOME, config, jdump, jload, udir  # noqa: E402
 
-SKIP = {".git", ".uat", "node_modules", "target", ".venv", "venv", "__pycache__", "dist", "build", ".next", ".gradle", "graphify-out", ".dart_tool", "Pods", ".idea", ".mypy_cache"}
+SKIP = {".git", ".tusk", "node_modules", "target", ".venv", "venv", "__pycache__", "dist", "build", ".next", ".gradle", "graphify-out", ".dart_tool", "Pods", ".idea", ".mypy_cache"}
 SRC_EXT = {".py", ".js", ".jsx", ".ts", ".tsx", ".rs", ".go", ".java", ".kt", ".rb", ".php", ".dart", ".swift", ".c", ".cc", ".cpp", ".cs", ".vue", ".svelte", ".html", ".sql"}
 MARKERS = {"package.json": "node", "pyproject.toml": "python", "requirements.txt": "python", "setup.py": "python", "Cargo.toml": "rust", "go.mod": "go", "pubspec.yaml": "flutter", "pom.xml": "java", "build.gradle": "java", "Gemfile": "ruby", "composer.json": "php", "Dockerfile": "docker", "docker-compose.yml": "docker", "docker-compose.yaml": "docker", "compose.yaml": "docker"}
 UI_HINTS = ("react", "vue", "svelte", "next", "angular", "solid-js", "playwright", "vite")
@@ -111,7 +111,7 @@ def installed(t, r):
     m = t["install"]["method"]
     if m == "builtin":
         return bool(shutil.which(t["check"].split()[0]))
-    tools = Path(r) / ".uat" / "tools"
+    tools = Path(r) / ".tusk" / "tools"
     first = t["check"].split()[0]
     if m in ("pip", "npm", "cargo"):
         return any((tools / sub / first).exists() for sub in ("venv/bin", "node_modules/.bin", "bin")) or bool(shutil.which(first))

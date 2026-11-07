@@ -3,21 +3,21 @@ from http.server import ThreadingHTTPServer
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-os.environ.setdefault("UAT_STATE_DIR", tempfile.mkdtemp(prefix="uat-state-"))
-import dashboard, team, uatlib
+os.environ.setdefault("TUSK_STATE_DIR", tempfile.mkdtemp(prefix="tusk-state-"))
+import dashboard, team, tusklib
 
 GOOD = {"orchestrator": {"name": "Elephant", "family": "claude", "model": "sonnet"},
         "workers": [{"family": "claude", "model": "haiku", "roles": ["tester"]}, {"family": "codex", "model": "gpt-6.1-terra", "roles": ["verifier", "fixer"]}]}
 
 
 def root():
-    d = tempfile.mkdtemp(prefix="uat-team-")
-    (Path(d) / ".uat").mkdir()
+    d = tempfile.mkdtemp(prefix="tusk-team-")
+    (Path(d) / ".tusk").mkdir()
     return Path(d)
 
 
 class Validate(unittest.TestCase):
-    cfg = uatlib.config(root())
+    cfg = tusklib.config(root())
 
     def bad(self, mut, word):
         t = json.loads(json.dumps(GOOD))
@@ -54,13 +54,13 @@ class Apply(unittest.TestCase):
     def test_apply_writes_config_adds_never_shrinks_and_audits(self):
         r = root()
         team.apply(r, GOOD, "orchestrator")
-        mine = json.loads((r / ".uat" / "uat.json").read_text())
+        mine = json.loads((r / ".tusk" / "tusk.json").read_text())
         self.assertEqual(mine["swarm"]["families"], ["claude"])
         self.assertIn("haiku", mine["models"]["claude"]["cheap"])
         self.assertIn("gpt-6.1-terra", mine["models"]["codex"]["mid"])
         self.assertEqual(team.testers(team.current(r)), "claude:haiku")
-        self.assertEqual(json.loads((r / ".uat" / "orchestrator.json").read_text())["model"], "sonnet")
-        self.assertIn("team_applied", (r / ".uat" / "audit.jsonl").read_text())
+        self.assertEqual(json.loads((r / ".tusk" / "orchestrator.json").read_text())["model"], "sonnet")
+        self.assertIn("team_applied", (r / ".tusk" / "audit.jsonl").read_text())
 
 
 class Dash(unittest.TestCase):
@@ -72,8 +72,8 @@ class Dash(unittest.TestCase):
         threading.Thread(target=self.srv.serve_forever, daemon=True).start()
         self.addCleanup(self.srv.shutdown)
 
-    def post(self, body, token=None, origin=True, ctype="application/json", xr="uat-dashboard"):
-        h = {"Content-Type": ctype, "X-UAT-Token": dashboard.TOKEN if token is None else token}
+    def post(self, body, token=None, origin=True, ctype="application/json", xr="tusk-dashboard"):
+        h = {"Content-Type": ctype, "X-Tusk-Token": dashboard.TOKEN if token is None else token}
         if origin:
             h["Origin"] = f"http://127.0.0.1:{self.port}"
         if xr:
@@ -88,8 +88,8 @@ class Dash(unittest.TestCase):
         self.assertEqual(self.post(GOOD), 200)
         self.assertTrue(team.path(self.r, True).exists())
         self.assertIsNone(team.current(self.r))
-        self.assertFalse((self.r / ".uat" / "uat.json").exists())
-        self.assertIn("team_proposed", (self.r / ".uat" / "audit.jsonl").read_text())
+        self.assertFalse((self.r / ".tusk" / "tusk.json").exists())
+        self.assertIn("team_proposed", (self.r / ".tusk" / "audit.jsonl").read_text())
 
     def test_every_guard_blocks(self):
         self.assertEqual(self.post(GOOD, token="nope"), 401)
@@ -142,42 +142,42 @@ class FixProof(unittest.TestCase):
     def test_replay_of_a_fix_uses_the_trusted_snapshot_not_the_live_file(self):
         import replay
         r = root()
-        live = r / ".uat" / "agents" / "A1" / "findings" / "F-1.json"
+        live = r / ".tusk" / "agents" / "A1" / "findings" / "F-1.json"
         live.parent.mkdir(parents=True)
         live.write_text('{"id": "F-1"}')
-        t = uatlib.trusted_dir(r, live)
+        t = tusklib.trusted_dir(r, live)
         (t / "files").mkdir(parents=True)
         (t / "finding.json").write_text('{"id": "F-1", "from": "snapshot"}')
         (t / "digest").write_text("abc")
         live.write_text('{"id": "F-1", "from": "edited-after-snapshot"}')
-        obj, digest = uatlib.trusted(r, live)
+        obj, digest = tusklib.trusted(r, live)
         self.assertEqual((obj["from"], digest), ("snapshot", "abc"))
         # a fix proof with no snapshot cannot pass: it must not fall back to the live file
         import shutil
         shutil.rmtree(t)
-        self.assertEqual(replay.replay_one(live, uatlib.config(r), r, None, 1, True, use_trusted=True), "error")
+        self.assertEqual(replay.replay_one(live, tusklib.config(r), r, None, 1, True, use_trusted=True), "error")
 
 
 class StaleVerdict(unittest.TestCase):
     def test_verdict_is_ignored_when_the_evidence_changed_or_digest_missing(self):
         c = {"cid": "C-aaaaaaaaaaaa", "digest": "new", "verdict": "needs_verifier"}
         for v in ({"verdict": "reject", "digest": "old"}, {"verdict": "reject"}):
-            self.assertEqual(uatlib.effective_verdict(None, c, {"C-aaaaaaaaaaaa": v}), "needs_verifier")
-        self.assertEqual(uatlib.effective_verdict(None, c, {"C-aaaaaaaaaaaa": {"verdict": "reject", "digest": "new"}}), "reject")
+            self.assertEqual(tusklib.effective_verdict(None, c, {"C-aaaaaaaaaaaa": v}), "needs_verifier")
+        self.assertEqual(tusklib.effective_verdict(None, c, {"C-aaaaaaaaaaaa": {"verdict": "reject", "digest": "new"}}), "reject")
 
 
 class VerdictDigest(unittest.TestCase):
     def run_v(self, r, *extra):
         import subprocess
-        return subprocess.run([sys.executable, str(Path(uatlib.__file__).parent / "verdict.py"), "C-aaaaaaaaaaaa", "accept", "ok", "--root", str(r), *extra], capture_output=True, text=True)
+        return subprocess.run([sys.executable, str(Path(tusklib.__file__).parent / "verdict.py"), "C-aaaaaaaaaaaa", "accept", "ok", "--root", str(r), *extra], capture_output=True, text=True)
 
     def test_verdict_needs_the_digest_the_verifier_reviewed(self):
         r = root()
-        (r / ".uat" / "clusters.json").write_text(json.dumps([{"cid": "C-aaaaaaaaaaaa", "digest": "cur"}]))
+        (r / ".tusk" / "clusters.json").write_text(json.dumps([{"cid": "C-aaaaaaaaaaaa", "digest": "cur"}]))
         self.assertNotEqual(self.run_v(r).returncode, 0)                          # no digest
         bad = self.run_v(r, "--digest", "stale")
         self.assertNotEqual(bad.returncode, 0)
         self.assertIn("evidence changed", bad.stderr)
-        self.assertFalse((r / ".uat" / "verdicts.json").exists())
+        self.assertFalse((r / ".tusk" / "verdicts.json").exists())
         self.assertEqual(self.run_v(r, "--digest", "cur").returncode, 0)
-        self.assertEqual(json.loads((r / ".uat" / "verdicts.json").read_text())["C-aaaaaaaaaaaa"]["digest"], "cur")
+        self.assertEqual(json.loads((r / ".tusk" / "verdicts.json").read_text())["C-aaaaaaaaaaaa"]["digest"], "cur")

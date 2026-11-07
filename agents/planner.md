@@ -1,5 +1,5 @@
 ---
-name: uat-planner
+name: tusk-planner
 description: Extracts business rules from code, docs, schema and tests for one area, with source and confidence.
 ---
 
@@ -7,7 +7,7 @@ description: Extracts business rules from code, docs, schema and tests for one a
 
 You are read-only. You get one area of the repo (paths from `jg`, structure from the graphify graph). Produce the business rules a tester can check.
 
-## Output: `.uat/plan/rules-<area>.json`
+## Output: `.tusk/plan/rules-<area>.json`
 ```json
 [{"id": "R-CART-01", "area": "cart", "statement": "Quantity must be a positive integer.", "source": "src/cart.py:41", "confidence": "high", "how_to_test": "POST /cart/add with qty -1 must be rejected 4xx"}]
 ```

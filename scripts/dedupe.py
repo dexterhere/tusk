@@ -10,7 +10,7 @@ Each cluster records `merge_reasons` so a wrong merge is auditable.
 Verdicts: accept (replay confirmed) | watch (single-agent concurrency report that did not replay: kept as unconfirmed, never silently dropped)
 | needs_verifier (also: confirmed but the repro never touches the target) | drop (single agent, not reproducible, not concurrency; tamper) | unreplayed.
 
-  dedupe.py [--root D]   -> .uat/clusters.json
+  dedupe.py [--root D]   -> .tusk/clusters.json
 """
 import argparse
 import hashlib
@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from uatlib import SEV, agent_meta, clean, config, emit, finding_files, jdump, jload, replay_path, trusted, trusted_dir, udir  # noqa: E402
+from tusklib import SEV, agent_meta, clean, config, emit, finding_files, jdump, jload, replay_path, trusted, trusted_dir, udir  # noqa: E402
 
 STOP = {"the", "a", "an", "is", "are", "of", "to", "in", "on", "for", "and", "not", "with", "when", "no", "returns", "does"}
 WEAK = 0.8

@@ -6,4 +6,4 @@ left:'nav-arrow-left',right:'nav-arrow-right',alert:'warning-triangle',cycle:'re
 lock:'lock',copy:'copy',play:'play',info:'info-circle',tools:'tools',pin:'map-pin'};
 const out={};
 for(const [k,n] of Object.entries(M)){const s=fs.readFileSync(dir+n+'.svg','utf8');out[k]=s.replace(/^[\s\S]*?<svg[^>]*>/,'').replace(/<\/svg>\s*$/,'').replace(/\s+/g,' ').trim()}
-fs.writeFileSync('out/iconoir.js','/* Iconoir 7.12.2, MIT license, https://iconoir.com. Inner SVG markup of the icons the dashboard uses (24x24, stroke currentColor). */\nwindow.UAT_ICONS='+JSON.stringify(out)+';\n');
+fs.writeFileSync('out/iconoir.js','/* Iconoir 7.12.2, MIT license, https://iconoir.com. Inner SVG markup of the icons the dashboard uses (24x24, stroke currentColor). */\nwindow.TUSK_ICONS='+JSON.stringify(out)+';\n');

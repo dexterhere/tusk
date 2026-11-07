@@ -33,11 +33,11 @@ def level(cfg):
 
 
 def clean_env(cfg, extra=None, path_prepend=()):
-    """Allowlist, not denylist: only these variables reach agent-written code, plus the UAT_* ones passed in."""
+    """Allowlist, not denylist: only these variables reach agent-written code, plus the TUSK_* ones passed in."""
     env = {k: os.environ[k] for k in ENV_KEEP if k in os.environ}
     env["PATH"] = ":".join([*map(str, path_prepend), env.get("PATH", "/usr/bin:/bin")])
     env.update(extra or {})
-    return {k: v for k, v in env.items() if k.startswith("UAT_") or k in ENV_KEEP or not ENV_DENY.search(k)}
+    return {k: v for k, v in env.items() if k.startswith("TUSK_") or k in ENV_KEEP or not ENV_DENY.search(k)}
 
 
 SYSTEM = ("usr", "etc", "opt", "lib", "lib32", "lib64", "bin", "sbin")
@@ -46,7 +46,7 @@ SYSTEM = ("usr", "etc", "opt", "lib", "lib32", "lib64", "bin", "sbin")
 def agent_home(cfg, family, files=None):
     """Throwaway HOME for one agent run, in a host-only temp dir (the agent never sees this path and cannot write to it).
     Copies only the credential/config files its CLI needs. Caller removes it with shutil.rmtree after the run."""
-    dest = Path(tempfile.mkdtemp(prefix="uat-home-"))
+    dest = Path(tempfile.mkdtemp(prefix="tusk-home-"))
     for rel in (files if files is not None else cfg["sandbox"]["agent_home"].get(family or "", [])):
         src = Path.home() / rel
         if src.is_symlink() or not src.is_file():

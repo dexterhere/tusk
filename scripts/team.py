@@ -2,13 +2,13 @@
 """The agent team: ONE orchestrator and at least one worker. Workers may share a harness/LLM with the orchestrator or not.
 
   team.py show   [--root D]                     current team, any pending proposal, what can be chosen
-  team.py set    --file team.json [--ping]      validate and apply a team (used by /uat-full after the user agreed in chat)
-  team.py apply  [--ping]                       apply the proposal the dashboard saved (.uat/team.pending.json), after the user agreed in chat
+  team.py set    --file team.json [--ping]      validate and apply a team (used by /tusk-full after the user agreed in chat)
+  team.py apply  [--ping]                       apply the proposal the dashboard saved (.tusk/team.pending.json), after the user agreed in chat
   team.py discard                               drop the pending proposal
   team.py testers                               'family:model,...' for swarm.py --agents
   team.py token                                 print the dashboard's one-time edit token (never put it in chat)
 
-Team file (.uat/team.json):
+Team file (.tusk/team.json):
   {"orchestrator": {"name": "Elephant", "family": "claude", "model": "opus"},
    "workers": [{"family": "claude", "model": "haiku", "roles": ["tester"]},
                {"family": "codex",  "model": "gpt-6.1-terra", "roles": ["verifier", "fixer"]}]}
@@ -27,7 +27,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import harness  # noqa: E402
-from uatlib import HOME, audit, config, jload, udir  # noqa: E402
+from tusklib import HOME, audit, config, jload, udir  # noqa: E402
 
 ROLES = ("tester", "verifier", "fixer")
 NAME = re.compile(r"[A-Za-z][A-Za-z0-9 _.-]{0,39}")
@@ -60,7 +60,7 @@ def validate(team, cfg, strict_models=False):
         if not isinstance(m, str) or not MODEL.fullmatch(m):
             raise ValueError(f"{what}: model name is empty or has characters that are not allowed")
         if strict_models and m not in known[f]:
-            raise ValueError(f"{what}: model {m!r} is not in the configured list for {f}. Add it with /uat-full reconfigure first.")
+            raise ValueError(f"{what}: model {m!r} is not in the configured list for {f}. Add it with /tusk-full reconfigure first.")
         return f, m
 
     o = team.get("orchestrator")
@@ -99,7 +99,7 @@ def testers(team):
 
 
 def ping(r, f, m):
-    p = subprocess.run([sys.executable, str(HOME / "scripts" / "uat.py"), "run_agent", "--ping", "--family", f, "--model", m, "--root", str(r)], capture_output=True, text=True, timeout=200)
+    p = subprocess.run([sys.executable, str(HOME / "scripts" / "tusk.py"), "run_agent", "--ping", "--family", f, "--model", m, "--root", str(r)], capture_output=True, text=True, timeout=200)
     return p.returncode == 0
 
 
@@ -114,7 +114,7 @@ def apply(r, team, actor, do_ping=False, strict=False):
     if bad:
         raise ValueError("these workers did not answer the test question, so the team was not changed: " + ", ".join(bad))
     u = udir(r)
-    mine = jload(u / "uat.json", {})
+    mine = jload(u / "tusk.json", {})
     models = mine.setdefault("models", {})
     for w in t["workers"]:                              # only ever add to the allowlist, never shrink it
         tier = models.setdefault(w["family"], {k: list((cfg.get("models") or {}).get(w["family"], {}).get(k, [])) for k in ("cheap", "mid")})
@@ -122,7 +122,7 @@ def apply(r, team, actor, do_ping=False, strict=False):
         if w["model"] not in lst:
             lst.append(w["model"])
     mine.setdefault("swarm", {})["families"] = sorted({w["family"] for w in t["workers"] if "tester" in w["roles"]})
-    for p, data in ((u / "uat.json", mine), (path(r), t), (u / "orchestrator.json", {"name": t["orchestrator"]["name"], "model": t["orchestrator"]["model"], "family": t["orchestrator"]["family"]})):
+    for p, data in ((u / "tusk.json", mine), (path(r), t), (u / "orchestrator.json", {"name": t["orchestrator"]["name"], "model": t["orchestrator"]["model"], "family": t["orchestrator"]["family"]})):
         tmp = p.with_suffix(p.suffix + ".tmp")
         tmp.write_text(json.dumps(data, indent=1, sort_keys=True))
         os.replace(tmp, p)
@@ -143,7 +143,7 @@ def view(r):
 
 
 def token_path(r):
-    from uatlib import _anchor
+    from tusklib import _anchor
     return _anchor(r).with_suffix(".dashtoken")
 
 
@@ -159,10 +159,10 @@ def main():
         if a.cmd == "show":
             print(json.dumps(view(r), indent=1))
         elif a.cmd == "testers":
-            t = current(r) or sys.exit("no team yet: run /uat-full")
+            t = current(r) or sys.exit("no team yet: run /tusk-full")
             print(testers(t))
         elif a.cmd == "token":
-            print(token_path(r).read_text().strip() if token_path(r).exists() else sys.exit("the dashboard is not running (start it with /uat dashboard)"))
+            print(token_path(r).read_text().strip() if token_path(r).exists() else sys.exit("the dashboard is not running (start it with /tusk dashboard)"))
         elif a.cmd == "discard":
             path(r, True).unlink(missing_ok=True)
             audit(r, "user", "team_proposal_discarded")

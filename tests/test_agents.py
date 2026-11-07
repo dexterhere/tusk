@@ -2,8 +2,8 @@ import json, os, sys, tempfile, unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-os.environ.setdefault("UAT_STATE_DIR", tempfile.mkdtemp(prefix="uat-state-"))
-import dashboard, harness, plain, uatlib
+os.environ.setdefault("TUSK_STATE_DIR", tempfile.mkdtemp(prefix="tusk-state-"))
+import dashboard, harness, plain, tusklib
 
 
 class Harness(unittest.TestCase):
@@ -47,7 +47,7 @@ class Snapshot(unittest.TestCase):
     def test_findings_show_agent_and_model_and_verifier_decides(self):
         with tempfile.TemporaryDirectory() as t:
             r = Path(t)
-            u = r / ".uat"
+            u = r / ".tusk"
             (u / "meta").mkdir(parents=True)
             (u / "plan").mkdir()
             (u / "plan/plan.json").write_text(json.dumps({"rules": [], "charters": [{"id": "CH-1", "area": "fit", "lens": "journey", "rule_ids": []}]}))
@@ -55,7 +55,7 @@ class Snapshot(unittest.TestCase):
             (u / "ledger.jsonl").write_text(json.dumps({"id": "A4", "model": "used-m", "ping": False}) + "\n")
             (u / "clusters.json").write_text(json.dumps([{"cid": "C-aaaaaaaaaaaa", "title": "t", "severity": "major", "area": "fit", "rule_id": "R", "replay": "confirmed", "verdict": "needs_verifier", "category": "x", "kind": "defect",
                                                           "agents": ["A4"], "files": [], "digest": "d", "merge_reasons": [], "fail_rate": 1}]))
-            uatlib.emit(r, "orchestrator", "assign", to="A4", kind="charter", ref="CH-1", family="codex", model="plan-m", lane="L1", note="n")
+            tusklib.emit(r, "orchestrator", "assign", to="A4", kind="charter", ref="CH-1", family="codex", model="plan-m", lane="L1", note="n")
             s = dashboard.snapshot(r)
             c = s["clusters"][0]
             self.assertEqual((c["found_by"][0]["id"], c["found_by"][0]["model"], c["found_by"][0]["fallback"]), ("A4", "used-m", True))
@@ -71,14 +71,14 @@ class Snapshot(unittest.TestCase):
 
     def test_ping_directory_is_not_an_agent(self):
         with tempfile.TemporaryDirectory() as t:
-            (Path(t) / ".uat/agents/ping/findings").mkdir(parents=True)
+            (Path(t) / ".tusk/agents/ping/findings").mkdir(parents=True)
             self.assertEqual(dashboard.snapshot(Path(t))["agents"], [])
 
     def test_change_signature_moves_when_state_changes(self):
         with tempfile.TemporaryDirectory() as t:
-            (Path(t) / ".uat").mkdir()
+            (Path(t) / ".tusk").mkdir()
             a = dashboard.change_signature(Path(t))
-            uatlib.emit(Path(t), "orchestrator", "phase", text="x")
+            tusklib.emit(Path(t), "orchestrator", "phase", text="x")
             self.assertNotEqual(a, dashboard.change_signature(Path(t)))
 
 

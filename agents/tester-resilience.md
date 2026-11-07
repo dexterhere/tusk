@@ -1,5 +1,5 @@
 ---
-name: uat-tester-resilience
+name: tusk-tester-resilience
 description: UAT tester, resilience lens. Checks behaviour under failure, restart, slowness, time and load.
 ---
 

@@ -1,4 +1,4 @@
-"""Shared helpers for uat-swarm scripts. Stdlib only."""
+"""Shared helpers for tusk-swarm scripts. Stdlib only."""
 import hashlib
 import json
 import os
@@ -7,7 +7,7 @@ import shutil
 import time
 from pathlib import Path
 
-HOME = Path(os.environ.get("UAT_HOME") or Path(__file__).resolve().parent.parent)
+HOME = Path(os.environ.get("TUSK_HOME") or Path(__file__).resolve().parent.parent)
 SEV = {"blocker": 0, "major": 1, "minor": 2, "nit": 3}
 TYPES = {"string": str, "integer": int, "boolean": bool, "object": dict, "array": list, "number": (int, float)}
 
@@ -17,7 +17,7 @@ def root(arg=None):
 
 
 def udir(r):
-    d = Path(r) / ".uat"
+    d = Path(r) / ".tusk"
     d.mkdir(exist_ok=True)
     return d
 
@@ -42,8 +42,8 @@ def deep_merge(a, b):
 
 
 def config(r):
-    """Defaults overlaid with the project's .uat/uat.json."""
-    return deep_merge(jload(HOME / "uat.defaults.json", {}), jload(Path(r) / ".uat" / "uat.json", {}))
+    """Defaults overlaid with the project's .tusk/tusk.json."""
+    return deep_merge(jload(HOME / "tusk.defaults.json", {}), jload(Path(r) / ".tusk" / "tusk.json", {}))
 
 
 def validate(obj, schema, path="$"):
@@ -81,10 +81,10 @@ def finding_schema():
 
 
 def finding_files(r):
-    """Finding files at .uat/agents/<id>/findings/F-*.json. Symlinked dirs/files and anything resolving outside the agent dir are ignored
+    """Finding files at .tusk/agents/<id>/findings/F-*.json. Symlinked dirs/files and anything resolving outside the agent dir are ignored
     (the agent controls its own dir, so it could point them anywhere)."""
     out = []
-    for p in sorted((Path(r) / ".uat" / "agents").glob("*/findings/F-*.json")):
+    for p in sorted((Path(r) / ".tusk" / "agents").glob("*/findings/F-*.json")):
         agent_dir = p.parent.parent
         if p.parent.is_symlink() or p.is_symlink() or not p.resolve().is_relative_to(agent_dir.resolve()):
             continue
@@ -167,15 +167,15 @@ def effective_verdict(r, c, verdicts=None):
 
 # ---------------------------------------------------------------- events (feed the live dashboard)
 def emit(r, actor, type_, **data):
-    """Append one event. One O_APPEND write per line. Host-side scripts write events.host.jsonl (UAT_EVENTS_FILE) so the SSH mirror
+    """Append one event. One O_APPEND write per line. Host-side scripts write events.host.jsonl (TUSK_EVENTS_FILE) so the SSH mirror
     never clobbers the orchestrator's own events.jsonl."""
     line = json.dumps({"ts": round(time.time(), 2), "actor": actor, "type": type_, **data}, separators=(",", ":")) + "\n"
-    fd = os.open(udir(r) / os.environ.get("UAT_EVENTS_FILE", "events.jsonl"), os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)
+    fd = os.open(udir(r) / os.environ.get("TUSK_EVENTS_FILE", "events.jsonl"), os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)
     try:
         os.write(fd, line.encode())
     finally:
         os.close(fd)
-    if "UAT_EVENTS_FILE" not in os.environ and type_ not in AUDIT_SKIP:      # host-side events (ssh) are not part of the local chain
+    if "TUSK_EVENTS_FILE" not in os.environ and type_ not in AUDIT_SKIP:      # host-side events (ssh) are not part of the local chain
         audit(r, actor, type_, **data)
 
 
@@ -275,7 +275,7 @@ def layout(cfg, r):
     """Paths as seen by the machine that executes the tests (this one, or the SSH host)."""
     if is_remote(cfg):
         base = cfg["target"]["ssh"]["dir"].rstrip("/")
-        return {"home": base + "/toolkit", "root": base, "udir": base + "/.uat"}
+        return {"home": base + "/toolkit", "root": base, "udir": base + "/.tusk"}
     return {"home": str(HOME), "root": str(Path(r)), "udir": str(udir(r))}
 
 
@@ -301,7 +301,7 @@ AUDIT_SKIP = {"agent_status", "step", "check"}       # heartbeats and probes are
 
 
 def audit(r, actor, type_, **data):
-    """Append one record to .uat/audit.jsonl. Each record carries the hash of the previous one, so editing or deleting any past line is
+    """Append one record to .tusk/audit.jsonl. Each record carries the hash of the previous one, so editing or deleting any past line is
     detectable (audit_verify). Locked, because lanes, replay and the dashboard write concurrently."""
     import fcntl
     path = udir(r) / "audit.jsonl"
@@ -322,7 +322,7 @@ def audit(r, actor, type_, **data):
         prev = json.loads(last)["hash"] if last else "0" * 64
         seq = (json.loads(last)["seq"] + 1) if last else 1
         for t_, d_ in (([("audit_anchor_adopted", {"records": adopted})] if adopted else []) + [(type_, data)]):
-            rec = {"seq": seq, "ts": round(time.time(), 2), "actor": str(actor)[:60] if t_ == type_ else "uatlib", "type": str(t_)[:40], "data": d_, "prev": prev}
+            rec = {"seq": seq, "ts": round(time.time(), 2), "actor": str(actor)[:60] if t_ == type_ else "tusklib", "type": str(t_)[:40], "data": d_, "prev": prev}
             rec["hash"] = sha(prev + json.dumps({k: rec[k] for k in ("seq", "ts", "actor", "type", "data")}, sort_keys=True, separators=(",", ":")))
             f.write(json.dumps(rec, separators=(",", ":")) + "\n")
             prev, seq = rec["hash"], seq + 1
@@ -337,10 +337,10 @@ def audit(r, actor, type_, **data):
 
 
 def _anchor(r):
-    """Latest (seq, hash) kept OUTSIDE the project's .uat dir. An unkeyed chain cannot stop someone who can write the file from truncating
+    """Latest (seq, hash) kept OUTSIDE the project's .tusk dir. An unkeyed chain cannot stop someone who can write the file from truncating
     the tail or rewriting every line; the verifier compares against this copy, so that needs write access to a second location too.
     Not a MAC: the same OS user can still change both. Detects accident and in-project tampering, not a hostile account owner."""
-    d = Path(os.environ.get("UAT_STATE_DIR") or Path.home() / ".local" / "state" / "uat")
+    d = Path(os.environ.get("TUSK_STATE_DIR") or Path.home() / ".local" / "state" / "tusk")
     d.mkdir(parents=True, exist_ok=True)
     return d / (sha(str(Path(r).resolve()))[:16] + ".head")
 

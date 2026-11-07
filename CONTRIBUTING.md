@@ -5,8 +5,8 @@ Thanks for helping. Small, focused changes are easiest to review.
 ## Set up and check
 
 ```sh
-git clone <repo> && cd uat
-UAT_STATE_DIR=$(mktemp -d) python3 -m unittest discover -s tests   # all tests must pass
+git clone <repo> && cd tusk
+TUSK_STATE_DIR=$(mktemp -d) python3 -m unittest discover -s tests   # all tests must pass
 ```
 
 Tests need no network, no model account and no real app (`tests/demo_app` is the target). Python 3 standard library only: do not add a dependency without discussing it first. The dashboard page is one file, `web/index.html`, with self-hosted assets only (no outside requests).

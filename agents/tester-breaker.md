@@ -1,5 +1,5 @@
 ---
-name: uat-tester-breaker
+name: tusk-tester-breaker
 description: UAT tester, breaker lens. Attacks inputs, permissions, state and ordering to break business rules.
 ---
 

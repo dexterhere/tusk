@@ -2,8 +2,8 @@
 """Local live dashboard: who is testing what, results, the fix queue. Stdlib only, binds to 127.0.0.1.
 
   dashboard.py [--root D] [--port 7777]      then open http://127.0.0.1:7777
-Read side: polls files under .uat/ (in ssh mode a thread mirrors them from the host every 3 s).
-Read-only: the dashboard has no write endpoints. Approvals happen in the chat (/uat-fix) or with fixq.py, never from this page.
+Read side: polls files under .tusk/ (in ssh mode a thread mirrors them from the host every 3 s).
+Read-only: the dashboard has no write endpoints. Approvals happen in the chat (/tusk-fix) or with fixq.py, never from this page.
 """
 import argparse
 import json
@@ -22,7 +22,7 @@ import plain  # noqa: E402
 import team  # noqa: E402
 import host  # noqa: E402
 import re  # noqa: E402
-from uatlib import HOME, SEV, agent_identity, agent_meta, audit, audit_read, audit_verify, clean, config, coverage, effective_verdict, is_remote, jload, read_events, safe_read, udir  # noqa: E402
+from tusklib import HOME, SEV, agent_identity, agent_meta, audit, audit_read, audit_verify, clean, config, coverage, effective_verdict, is_remote, jload, read_events, safe_read, udir  # noqa: E402
 
 WEB = HOME / "web" / "index.html"
 
@@ -92,14 +92,14 @@ def journey(phase, plan, agents, clusters, fq, life, has_report, audit_ok, runni
     prop = sum(1 for i in fq if i["state"] == "proposed")
     appr = sum(1 for i in fq if i["state"] in ("approved", "fixing"))
     rs = [
-        ("setup", "Set up", "You choose where tests run and which agents to use.", bool(phase), "/uat-init", "you + orchestrator"),
-        ("plan", "Plan", f"{len(plan.get('rules', []))} rules and {len(plan.get('charters', []))} test assignments written from your docs and code.", bool(plan.get("charters")), "/uat-plan", "orchestrator"),
-        ("execute", "Test", f"{sum(1 for a in agents.values() if a['status'] == 'done')} of {len(agents)} testers finished, each in its own copy of the app.", bool(agents) and not running, "/uat-execute", "tester agents"),
-        ("judge", "Judge", f"{len(clusters)} problem group(s) after re-running every finding; a script decides, not a model.", bool(clusters) or phase in ("reported", "fixed"), "/uat-feedback", "scripts + verifiers"),
-        ("report", "Report", "A fix-ready report with the exact repro for each problem." if has_report else "Not built yet.", has_report, "/uat-feedback", "orchestrator"),
+        ("setup", "Set up", "You choose where tests run and which agents to use.", bool(phase), "/tusk-init", "you + orchestrator"),
+        ("plan", "Plan", f"{len(plan.get('rules', []))} rules and {len(plan.get('charters', []))} test assignments written from your docs and code.", bool(plan.get("charters")), "/tusk-plan", "orchestrator"),
+        ("execute", "Test", f"{sum(1 for a in agents.values() if a['status'] == 'done')} of {len(agents)} testers finished, each in its own copy of the app.", bool(agents) and not running, "/tusk-execute", "tester agents"),
+        ("judge", "Judge", f"{len(clusters)} problem group(s) after re-running every finding; a script decides, not a model.", bool(clusters) or phase in ("reported", "fixed"), "/tusk-feedback", "scripts + verifiers"),
+        ("report", "Report", "A fix-ready report with the exact repro for each problem." if has_report else "Not built yet.", has_report, "/tusk-feedback", "orchestrator"),
         ("decide", "You decide", f"{prop} waiting for your yes or no. Approvals happen in chat." if prop else "Nothing waiting.", has_report and prop == 0, "", "you"),
-        ("fix", "Fix", f"{appr} in progress, {n('fixed') + n('verified')} fixed. Each fix first checks what else lives in the same code.", has_report and appr == 0 and (n("fixed") + n("verified")) > 0, "/uat-fix", "fix agents"),
-        ("retest", "Re-test", f"{n('verified')} verified in a later run, {n('fixed')} waiting for it, {n('regressed')} came back.", n("fixed") == 0 and n("verified") > 0 and n("regressed") == 0, "/uat-execute", "testers again"),
+        ("fix", "Fix", f"{appr} in progress, {n('fixed') + n('verified')} fixed. Each fix first checks what else lives in the same code.", has_report and appr == 0 and (n("fixed") + n("verified")) > 0, "/tusk-fix", "fix agents"),
+        ("retest", "Re-test", f"{n('verified')} verified in a later run, {n('fixed')} waiting for it, {n('regressed')} came back.", n("fixed") == 0 and n("verified") > 0 and n("regressed") == 0, "/tusk-execute", "testers again"),
     ]
     cur = next((i for i, x in enumerate(rs) if not x[3]), len(rs) - 1)
     if running:
@@ -166,12 +166,12 @@ def snapshot(r):
     if running:
         nxt = {"text": f"{running} agent(s) running. Nothing to do until they finish.", "cmd": ""}
     elif approved:
-        nxt = {"text": f"{approved} fix(es) approved and waiting.", "cmd": "/uat-fix"}
+        nxt = {"text": f"{approved} fix(es) approved and waiting.", "cmd": "/tusk-fix"}
     elif proposed:
         nxt = {"text": f"{proposed} result(s) wait for your decision.", "cmd": "", "tab": "fixes"}
     else:
         nxt = {"text": {"": "Not started.", "initialized": "Environment ready.", "planned": "Plan approved.", "executing": "Run finished or paused.", "executed": "Testing done.", "reported": "Report ready.", "fixed": "All approved fixes are proven."}.get(phase, ""),
-               "cmd": {"": "/uat-init", "initialized": "/uat-plan", "planned": "/uat-execute", "executing": "/uat-feedback", "executed": "/uat-feedback", "reported": "", "fixed": ""}.get(phase, "")}
+               "cmd": {"": "/tusk-init", "initialized": "/tusk-plan", "planned": "/tusk-execute", "executing": "/tusk-feedback", "executed": "/tusk-feedback", "reported": "", "fixed": ""}.get(phase, "")}
     summary = {"agents": {"total": len(agents), "running": running, "done": sum(1 for a in agents.values() if a["status"] == "done"), "failed": sum(1 for a in agents.values() if a["status"] in ("failed", "tamper"))},
                "tests": {"rules": len(cov), **{k: sum(1 for c in cov if c["status"] == k) for k in ("passed", "violated", "failed-unconfirmed", "untested")}},
                "findings": {s: sum(1 for c in accepted if c.get("severity") == s) for s in SEV}, "elapsed_s": round(time.time() - first) if events else 0}
@@ -305,7 +305,7 @@ def make_handler(r, port):
             self.wfile.write(b)
 
         def _stream(self):
-            """Server-sent events: one tiny message whenever anything under .uat/ that the page shows has changed, so the page reloads at once."""
+            """Server-sent events: one tiny message whenever anything under .tusk/ that the page shows has changed, so the page reloads at once."""
             self.send_response(200)
             for k, v in (("Content-Type", "text/event-stream"), ("Cache-Control", "no-store"), ("X-Accel-Buffering", "no"), ("X-Content-Type-Options", "nosniff")):
                 self.send_header(k, v)
@@ -340,9 +340,9 @@ def make_handler(r, port):
             origin = self.headers.get("Origin", "")
             if not self._host_ok() or origin not in (f"http://127.0.0.1:{port}", f"http://localhost:{port}"):   # blocks cross-site and rebinding
                 return self._send(403, json.dumps({"error": "request not allowed from this page"}))
-            if self.headers.get("Content-Type", "").split(";")[0].strip() != "application/json" or self.headers.get("X-Requested-With") != "uat-dashboard":
+            if self.headers.get("Content-Type", "").split(";")[0].strip() != "application/json" or self.headers.get("X-Requested-With") != "tusk-dashboard":
                 return self._send(415, json.dumps({"error": "bad request type"}))
-            if not secrets.compare_digest(self.headers.get("X-UAT-Token", ""), TOKEN):
+            if not secrets.compare_digest(self.headers.get("X-Tusk-Token", ""), TOKEN):
                 return self._send(401, json.dumps({"error": "wrong or missing edit token. Get it by running: python3 scripts/team.py token"}))
             now = time.time()
             RECENT[:] = [t for t in RECENT if now - t < 60]
@@ -360,7 +360,7 @@ def make_handler(r, port):
             tmp.write_text(json.dumps(t, indent=1, sort_keys=True))
             os.replace(tmp, team.path(r, True))
             audit(r, "dashboard", "team_proposed", workers=len(t["workers"]), orchestrator=f"{t['orchestrator']['family']}/{t['orchestrator']['model']}")
-            self._send(200, json.dumps({"ok": True, "next": "Ask the orchestrator in chat: /uat-full apply"}))
+            self._send(200, json.dumps({"ok": True, "next": "Ask the orchestrator in chat: /tusk-full apply"}))
 
         def do_GET(self):
             self.nonce = secrets.token_urlsafe(12)

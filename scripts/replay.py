@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """Replay every finding's repro N times, in a lane, inside the same sandbox as the testers. The script, not a model, judges.
 
-Trust model: a finding is first SNAPSHOT into .uat/trusted/ (finding JSON + its declared repro files + digest). Replay runs that copy in a
+Trust model: a finding is first SNAPSHOT into .tusk/trusted/ (finding JSON + its declared repro files + digest). Replay runs that copy in a
 fresh scratch dir, so a repro cannot rewrite its own finding, files or verdict. Dedupe/report/fixq use the snapshot, never the live agent dir.
 
 repro.cmd asserts CORRECT behaviour. Exit codes (replay.fail_codes, default [1]) mean "bug present"; 0 means correct; anything else
 (2 syntax error, 126/127, 137 kill, 139 segfault, timeout) means the repro itself is broken => `error`, not a confirmed bug.
-A repro that never touches the target (no $UAT_BASE_URL / $UAT_WS / lane URL in its command or files) is flagged `touches_target=false`:
+A repro that never touches the target (no $TUSK_BASE_URL / $TUSK_WS / lane URL in its command or files) is flagged `touches_target=false`:
 it proves repeatability, not truth, so dedupe sends it to the verifier.
 
   status: confirmed | flaky (fail_rate recorded) | not_reproducible | error | tamper
 Concurrency findings get `replay.stress_runs` runs. Findings replay in parallel, one lane each.
 
   replay.py [--root D] [--runs N] [--only CLUSTER_ID] [--passing] [--lane L1] [--keep-code]
-  --passing    fix check: exit 0 only if >=1 finding ran and every one now exits 0 on every run (use --keep-code after `uat_env lane sync`)
+  --passing    fix check: exit 0 only if >=1 finding ran and every one now exits 0 on every run (use --keep-code after `tusk_env lane sync`)
 """
 import argparse
 import hashlib
@@ -29,10 +29,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sandbox  # noqa: E402
-from uat_env import Lane  # noqa: E402
-from uatlib import HOME, trusted, clean, config, emit, finding_files, finding_schema, jdump, jload, lane_names, replay_path, snapshot_finding, udir, validate  # noqa: E402
+from tusk_env import Lane  # noqa: E402
+from tusklib import HOME, trusted, clean, config, emit, finding_files, finding_schema, jdump, jload, lane_names, replay_path, snapshot_finding, udir, validate  # noqa: E402
 
-TARGET_MARKERS = ("UAT_BASE_URL", "UAT_WS", "UAT_LANE", "127.0.0.1", "localhost")
+TARGET_MARKERS = ("TUSK_BASE_URL", "TUSK_WS", "TUSK_LANE", "127.0.0.1", "localhost")
 
 
 def run_count(obj, cfg, runs):
@@ -58,10 +58,10 @@ def replay_one(f, cfg, root, lane, runs, keep_code, use_trusted=False):
     for i in range(n):
         lane.reset(state_only=keep_code)
         (udir(root) / "scratch").mkdir(exist_ok=True)
-        scratch = Path(tempfile.mkdtemp(prefix=f"uat-{lane.name}-", dir=udir(root) / "scratch"))
+        scratch = Path(tempfile.mkdtemp(prefix=f"tusk-{lane.name}-", dir=udir(root) / "scratch"))
         try:
             shutil.copytree(t, scratch, dirs_exist_ok=True)
-            env = sandbox.clean_env(cfg, {"UAT_BASE_URL": lane.base_url, "UAT_WS": str(lane.ws), "UAT_AGENT_DIR": str(scratch), "UAT_LANE": lane.name, "HOME": str(Path.home())},
+            env = sandbox.clean_env(cfg, {"TUSK_BASE_URL": lane.base_url, "TUSK_WS": str(lane.ws), "TUSK_AGENT_DIR": str(scratch), "TUSK_LANE": lane.name, "HOME": str(Path.home())},
                                     [udir(root) / "tools" / s for s in ("venv/bin", "node_modules/.bin", "bin")])
             cmd = sandbox.wrap(cfg, ["bash", "-c", obj["repro"]["cmd"]], cwd=scratch, ws=lane.ws, tools=udir(root) / "tools", toolkit=HOME, net=net,
                                writable=[lane.ws / p for p in lane.tracked()])
@@ -107,7 +107,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default=os.getcwd())
     ap.add_argument("--runs", type=int)
-    ap.add_argument("--only", help="cluster id from .uat/clusters.json")
+    ap.add_argument("--only", help="cluster id from .tusk/clusters.json")
     ap.add_argument("--passing", action="store_true")
     ap.add_argument("--lane", help="use this lane only (default: all lanes in parallel)")
     ap.add_argument("--keep-code", action="store_true", help="do not reset the lane's code first (fix proof)")

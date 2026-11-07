@@ -1,6 +1,6 @@
 # Install and set up Tusk
 
-Tusk (the UAT Swarm) runs from a plain checkout. There is nothing to compile and no Python package to install.
+Tusk (the Tusk) runs from a plain checkout. There is nothing to compile and no Python package to install.
 
 ## 1. Requirements
 
@@ -11,7 +11,7 @@ Tusk (the UAT Swarm) runs from a plain checkout. There is nothing to compile and
 | `git` | Baselines, tamper detection, fix branches | `git --version` |
 | `bwrap` (bubblewrap) | Sandbox for every command an agent writes | `bwrap --version` |
 | One agent CLI, logged in | The testers. `claude`, `codex` or `opencode` are verified; see the README for others | `claude --version` |
-| [Claude Code](https://claude.com/claude-code) | Runs the `/uat-*` slash commands (the scripts also run without it) | `claude --version` |
+| [Claude Code](https://claude.com/claude-code) | Runs the `/tusk-*` slash commands (the scripts also run without it) | `claude --version` |
 | Remote host (optional) | `ssh`, `rsync`, `python3`, `bwrap` on it, key auth only | `ssh -o BatchMode=yes <host> true` |
 
 Install bubblewrap: `sudo pacman -S bubblewrap` (Arch/Omarchy) or `sudo apt install bubblewrap` (Debian/Ubuntu). Without it Tusk refuses to run agent commands unless you explicitly turn the sandbox off.
@@ -22,7 +22,6 @@ Disk and memory: about 10 GB free and 4 GB RAM on the machine that runs the test
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/dexterhere/tusk/main/install.sh | sh     # clones to ~/.local/share/tusk
-npm i -g @dexterhere/tusk && tusk setup                                                # needs Node 18+ and the package to be published
 git clone https://github.com/dexterhere/tusk.git ~/.local/share/tusk && ~/.local/share/tusk/bin/tusk setup
 ```
 
@@ -30,19 +29,19 @@ git clone https://github.com/dexterhere/tusk.git ~/.local/share/tusk && ~/.local
 
 ## 3. What install does
 
-`tusk install` creates symlinks only: `~/.tusk` pointing at the checkout, and `~/.claude/skills/uat*` pointing at its `skills/`. It never overwrites a real file or folder (it says SKIPPED) and `tusk uninstall` removes only links that point at this checkout. Restart Claude Code and type `/uat` to confirm. To use another location, set `UAT_HOME=/path` (skills default to `~/.tusk`).
+`tusk install` creates symlinks only: `~/.tusk` pointing at the checkout, and `~/.claude/skills/tusk*` pointing at its `skills/`. It never overwrites a real file or folder (it says SKIPPED) and `tusk uninstall` removes only links that point at this checkout. Restart Claude Code and type `/tusk` to confirm. To use another location, set `TUSK_HOME=/path` (skills default to `~/.tusk`).
 
 ## 4. Check it works (no agent, no network)
 
 ```sh
-UAT_STATE_DIR=$(mktemp -d) python3 -m unittest discover -s tests    # about 95 s, all green
+TUSK_STATE_DIR=$(mktemp -d) python3 -m unittest discover -s tests    # about 95 s, all green
 python3 scripts/harness.py list                                      # which agent programs are installed
 ```
 
 ## 5. Run it on your project
 
 1. `cd` into the project you want to test and start Claude Code there.
-2. Run **`/uat-full`**.
+2. Run **`/tusk-full`**.
 3. Answer the questions:
    - **Where to run:** this computer, or an ssh host.
    - **Team:** one orchestrator and at least one worker. They can be the same model or different ones. Each model is pinged before use.
@@ -50,19 +49,19 @@ python3 scripts/harness.py list                                      # which age
 4. Open the dashboard it prints (default `http://127.0.0.1:7777`).
 5. When testing ends, read the report and say which fixes may start. Nothing is fixed before you say yes.
 
-Everything Tusk creates lives in `<your project>/.uat/` and is git-ignored. Your source is never edited by the testers.
+Everything Tusk creates lives in `<your project>/.tusk/` and is git-ignored. Your source is never edited by the testers.
 
-Prefer step by step: `/uat-init`, `/uat-plan`, `/uat-execute`, `/uat-feedback`, `/uat-fix`, with `/uat` showing where you are.
+Prefer step by step: `/tusk-init`, `/tusk-plan`, `/tusk-execute`, `/tusk-feedback`, `/tusk-fix`, with `/tusk` showing where you are.
 
 ## 6. Dashboard and team changes
 
 - Start or restart: `tusk dashboard` (add `--port N`). It listens on 127.0.0.1 only.
-- Change the team: on the **Team** page choose from the listed programs and models and save a *proposal*. You need the edit token: `tusk token`. Then tell the orchestrator `/uat-full apply`. The page cannot change anything by itself.
+- Change the team: on the **Team** page choose from the listed programs and models and save a *proposal*. You need the edit token: `tusk token`. Then tell the orchestrator `/tusk-full apply`. The page cannot change anything by itself.
 - The tab icon, theme and Figtree font are served locally; the page makes no outside requests.
 
 ## 7. Settings you may want
 
-Put overrides in `<project>/.uat/uat.json` (they merge over `uat.defaults.json`):
+Put overrides in `<project>/.tusk/tusk.json` (they merge over `tusk.defaults.json`):
 
 | Setting | Meaning |
 |---|---|
@@ -81,10 +80,10 @@ Put overrides in `<project>/.uat/uat.json` (they merge over `uat.defaults.json`)
 | An agent shows "not logged in" | Log in to that CLI on the machine that runs it (on the ssh host too) |
 | A model "did not answer the test question" | Pick another model; presets other than claude, codex and opencode are unverified |
 | "out of quota" | Wait for the reset or add another model to the team |
-| Audit log "cannot be proven complete" | Normal after wiping `.uat/` on purpose: `python3 scripts/audit.py reset` |
+| Audit log "cannot be proven complete" | Normal after wiping `.tusk/` on purpose: `python3 scripts/audit.py reset` |
 | Slash commands missing | Re-run the symlink loop, restart Claude Code |
 | Tab icon looks old | Hard-refresh (Ctrl+Shift+R) after restarting the dashboard |
 
 ## 9. Uninstall
 
-Run `tusk uninstall`, delete the checkout, and delete `.uat/` inside each project. Audit anchors live in `~/.local/state/uat/`.
+Run `tusk uninstall`, delete the checkout, and delete `.tusk/` inside each project. Audit anchors live in `~/.local/state/tusk/`.
