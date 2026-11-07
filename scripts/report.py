@@ -108,6 +108,8 @@ def main():
     import fixq
     from uatlib import audit_verify, coverage, emit
     fixq.sync(r)
+    import kb
+    kb.ingest(r)
     emit(r, 'orchestrator', 'report_built', accepted=len(items), score=score)
     print(f"report: {out / 'report.md'}  accepted={len(items)} score={score}")
 

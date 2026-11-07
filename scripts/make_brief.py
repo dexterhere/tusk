@@ -46,6 +46,10 @@ def main():
         entry=ch.get("entry", "see plan"), rules=rule_txt, tools="\n".join(f"- {t}" for t in ch.get("tools", [])) or "- none specified",
         leads="\n".join(f"- {x}" for x in ch.get("leads", [])) or "- none", notes=ch.get("notes", ""), max_findings=cfg["stop"]["max_findings_per_agent"],
         catalog=home / "resources" / "tool-catalog.json", tools_path=rd / "tools", event=f"python3 {home}/scripts/uat_event.py", kind=cfg["env"]["kind"])
+    import kb
+    rv = kb.reverify_lines(r, ch["area"])
+    if rv:      # behaviour that was reported and fixed earlier: look at it first, no code locations given (testers stay blind)
+        text += "\n\n## Previously reported and fixed: re-verify these first\nIf one is broken again, report it as a normal finding.\n" + "\n".join(rv) + "\n"
     (d / "brief.md").write_text(text)
     print(d / "brief.md")
 

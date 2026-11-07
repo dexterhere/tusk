@@ -145,10 +145,14 @@
       "major",
       "minor"
     ],
-    "suboptimal_queue": true
+    "suboptimal_queue": true,
+    "test_cmd": ""
   },
   "dashboard": {
     "port": 7777,
     "host": "127.0.0.1"
+  },
+  "kb": {
+    "dir": ".uat/kb"
   }
 }

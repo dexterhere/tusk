@@ -67,6 +67,11 @@ def set_state(r, cid, state, note="", branch="", by="orchestrator"):
         it["branch"] = branch
     jdump(path(r), items)
     emit(r, by, "fix_state", cid=cid, state=state, note=note)
+    try:
+        import kb
+        kb.ingest(r, new_run=False)             # keep the knowledge graph's issue status in step with the queue
+    except Exception:
+        pass
     return it
 
 
