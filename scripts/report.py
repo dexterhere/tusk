@@ -40,10 +40,11 @@ def main():
         reg = u / "regression" / c["cid"]
         reg.mkdir(parents=True, exist_ok=True)
         for rel in lead.get("repro", {}).get("files", []):
-            src = agent_dir / rel
-            if src.is_file():
-                (reg / rel).parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(src, reg / rel)
+            src, dst = (agent_dir / rel), (reg / rel)
+            inside = lambda p, base: p.resolve().is_relative_to(base.resolve())  # noqa: E731
+            if src.is_file() and not src.is_symlink() and inside(src, agent_dir) and inside(dst, reg):
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src, dst, follow_symlinks=False)
         jdump(reg / "finding.json", lead)
         items.append({
             "cid": c["cid"], "fp": c["fp"], "title": c["title"], "severity": c["severity"], "category": c["category"], "area": c["area"],

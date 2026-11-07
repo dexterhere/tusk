@@ -66,7 +66,8 @@ def sync_down(cfg, r):
     """Everything the host produced, except heavy trees. Never deletes local files."""
     u = udir(r)
     ex = [f"--exclude={h}" for h in HEAVY] + ["--exclude=agents/*/brief.md", "--exclude=uat.json", "--exclude=state.json", "--exclude=plan/", "--exclude=report/", "--exclude=fixqueue.json"]
-    _rsync(cfg, _dest(cfg, ".uat/"), f"{u}/", ex)
+    # a compromised host must not plant symlinks/devices in the local mirror
+    _rsync(cfg, _dest(cfg, ".uat/"), f"{u}/", ex + ["--no-links", "--no-devices", "--no-specials", "--max-size=20M"])
 
 
 def python_cmd(cfg, script, args):
