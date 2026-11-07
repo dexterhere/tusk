@@ -1,4 +1,26 @@
+<p align="center"><img src="web/logo.svg" alt="UAT Swarm logo: the orchestrator elephant" width="96" height="96"></p>
+
 # UAT Swarm
+
+**Hand your app to a herd of cheap, blind AI testers. Get back only the bugs a script could reproduce.**
+
+An orchestrator (the elephant, which remembers everything) sends many low-cost tester agents into isolated copies of your app. A deterministic script, not a model, replays every claim and decides what is real. Confirmed bugs go into a fix queue and a knowledge graph. **Nothing is fixed, pushed or deployed until you say yes in chat.**
+
+## Use it in 5 steps
+
+**You need:** Linux, `python3`, `git`, `bwrap` (bubblewrap), and at least one agent CLI that is logged in (`claude`, `codex` or `opencode`; others in "Any agent" below). Claude Code runs the slash commands.
+
+1. **Install the skills once:** `for s in skills/*; do ln -sfn "$PWD/$s" ~/.claude/skills/$(basename $s); done`
+2. **Open your project** in Claude Code and run `/uat-full`.
+3. **Answer the setup questions.** Where to run (this computer or an ssh host), and the team: one orchestrator plus at least one worker, the same model or different ones. Models are pinged before they are trusted.
+4. **Watch it live** at `http://127.0.0.1:7777` (the dashboard starts for you). It shows who is testing what, findings, the fix cycle, the audit log and the knowledge graph.
+5. **Decide.** When testing ends it shows the report and asks which fixes may start. Approve some, all or none. Approved fixes are written on a branch and proven by replay; the next run re-tests them and marks each *verified* or *regressed*.
+
+Prefer control over automation? Run the stages yourself: `/uat-init`, `/uat-plan`, `/uat-execute`, `/uat-feedback`, `/uat-fix`; `/uat` shows where you are.
+
+**Safe by default:** tester commands run in a bubblewrap sandbox, only in disposable copies of your app; secrets are never sent to agents; the dashboard listens on 127.0.0.1 only; every phase, verdict and fix is in a tamper-evident audit log. Details under "How trust works".
+
+---
 
 A swarm of cheap, blind tester agents (Claude Haiku, Codex, OpenCode free models) tries to break a system. A script, not a model, decides what is real. Every
 confirmed result lands in a fix queue; fixes start only after a human approves them.
@@ -86,3 +108,7 @@ The full cycle, what is recorded at each step, and how to plug in any agent harn
 `.uat/team.json` holds one orchestrator and one or more workers (roles `tester`, `verifier`, `fixer`; one worker may hold all three; any worker may use the same program and model as the orchestrator). `scripts/team.py` validates and applies it.
 
 The dashboard's only POST is `/api/team/propose`. Guards, all enforced server-side (see `tests/test_team.py`): loopback-only, `Host` check, exact `Origin`, `Content-Type: application/json` plus a custom header (no cross-site form can send it), a per-process random edit token compared in constant time (kept in an owner-only file, read with `python3 scripts/team.py token`; never shown in the page or chat), 8 KB body cap, 10 proposals a minute, strict schema, program names from the harness registry only, **models only from the configured list** (nothing free-typed reaches a command line), no command templates, paths or secrets. It writes `.uat/team.pending.json` and one audit record; it cannot change `team.json`, `uat.json` or run anything. Applying (ping every model, write config, audit) is done by the orchestrator in chat. Residual risk: anyone who can read your owner-only state files or run as you can already do more than this.
+
+## Project
+
+[MIT License](LICENSE) · [Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) · [Code of conduct](CODE_OF_CONDUCT.md)
