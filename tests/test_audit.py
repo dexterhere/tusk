@@ -2,6 +2,8 @@ import json, sys, tempfile, threading, unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+import os
+os.environ.setdefault('UAT_STATE_DIR', tempfile.mkdtemp(prefix='uat-state-'))
 import uatlib, dashboard
 
 
@@ -34,6 +36,15 @@ class AuditChain(unittest.TestCase):
             p = r / ".uat" / "audit.jsonl"
             l = p.read_text().splitlines()
             p.write_text("\n".join([l[0], l[2]]) + "\n")
+            self.assertFalse(uatlib.audit_verify(r)[0])
+
+    def test_truncated_tail_detected(self):
+        with tempfile.TemporaryDirectory() as t:
+            r = project(t)
+            for i in range(3):
+                uatlib.audit(r, "orch", "t", n=i)
+            p = r / ".uat" / "audit.jsonl"
+            p.write_text("\n".join(p.read_text().splitlines()[:2]) + "\n")   # still a valid chain, but shorter than the anchor
             self.assertFalse(uatlib.audit_verify(r)[0])
 
     def test_concurrent_writers_keep_chain(self):

@@ -290,6 +290,20 @@ def audit(r, actor, type_, **data):
         rec = {"seq": seq, "ts": round(time.time(), 2), "actor": str(actor)[:60], "type": str(type_)[:40], "data": data, "prev": prev}
         rec["hash"] = sha(prev + json.dumps({k: rec[k] for k in ("seq", "ts", "actor", "type", "data")}, sort_keys=True, separators=(",", ":")))
         f.write(json.dumps(rec, separators=(",", ":")) + "\n")
+        f.flush()
+        try:
+            _anchor(r).write_text(f"{seq} {rec['hash']}\n")
+        except OSError:
+            pass
+
+
+def _anchor(r):
+    """Latest (seq, hash) kept OUTSIDE the project's .uat dir. An unkeyed chain cannot stop someone who can write the file from truncating
+    the tail or rewriting every line; the verifier compares against this copy, so that needs write access to a second location too.
+    Not a MAC: the same OS user can still change both. Detects accident and in-project tampering, not a hostile account owner."""
+    d = Path(os.environ.get("UAT_STATE_DIR") or Path.home() / ".local" / "state" / "uat")
+    d.mkdir(parents=True, exist_ok=True)
+    return d / (sha(str(Path(r).resolve()))[:16] + ".head")
 
 
 def audit_read(r, limit=None):
@@ -311,6 +325,13 @@ def audit_verify(r):
         if rec.get("prev") != prev or rec.get("hash") != want or rec.get("seq") != n:
             return False, n, prev, n
         prev = rec["hash"]
+    try:
+        seq, head = _anchor(r).read_text().split()
+        recs = audit_read(r)
+        if int(seq) > len(recs) or recs[int(seq) - 1].get("hash") != head:
+            return False, n, prev, min(n, int(seq))      # tail truncated, or history rewritten after the anchor was taken
+    except (OSError, ValueError):
+        pass
     return True, n, prev, None
 
 
