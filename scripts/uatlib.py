@@ -1,6 +1,8 @@
 """Shared helpers for uat-swarm scripts. Stdlib only."""
 import json
 import os
+import re
+import time
 from pathlib import Path
 
 HOME = Path(os.environ.get("UAT_HOME") or Path(__file__).resolve().parent.parent)
@@ -77,3 +79,52 @@ def finding_schema():
 def finding_files(r):
     """Valid-location finding files: .uat/agents/<id>/findings/F-*.json"""
     return sorted(p for p in (Path(r) / ".uat" / "agents").glob("*/findings/F-*.json") if not p.name.endswith(".replay.json"))
+
+
+# ---------------------------------------------------------------- events (feed the live dashboard)
+def emit(r, actor, type_, **data):
+    """Append one event to .uat/events.jsonl. One O_APPEND write per line, so parallel writers do not interleave."""
+    line = json.dumps({"ts": round(time.time(), 2), "actor": actor, "type": type_, **data}, separators=(",", ":")) + "\n"
+    fd = os.open(udir(r) / "events.jsonl", os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)
+    try:
+        os.write(fd, line.encode())
+    finally:
+        os.close(fd)
+
+
+def read_events(r, since=0):
+    out = []
+    for ln in (udir(r) / "events.jsonl").read_text(errors="ignore").splitlines() if (udir(r) / "events.jsonl").exists() else []:
+        try:
+            e = json.loads(ln)
+        except ValueError:
+            continue
+        if e["ts"] > since:
+            out.append(e)
+    return out
+
+
+# ---------------------------------------------------------------- lanes and host layout
+def lane_names(cfg):
+    return [f"L{i}" for i in range(1, int(cfg["swarm"]["max_parallel"]) + 1)]
+
+
+def lane_port(cfg, lane):
+    return int(cfg["env"]["base_port"]) + int(lane[1:]) - 1
+
+
+def lane_url(cfg, lane, key="base_url"):
+    """base_url / health_url of one lane: same URL with the port swapped for the lane port."""
+    return re.sub(r"(://[^/:]+):\d+", lambda m: f"{m.group(1)}:{lane_port(cfg, lane)}", cfg["env"][key], count=1)
+
+
+def is_remote(cfg):
+    return cfg["target"]["mode"] == "ssh"
+
+
+def layout(cfg, r):
+    """Paths as seen by the machine that executes the tests (this one, or the SSH host)."""
+    if is_remote(cfg):
+        base = cfg["target"]["ssh"]["dir"].rstrip("/")
+        return {"home": base + "/toolkit", "root": base, "udir": base + "/.uat"}
+    return {"home": str(HOME), "root": str(Path(r)), "udir": str(udir(r))}

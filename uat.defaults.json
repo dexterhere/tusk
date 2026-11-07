@@ -1,7 +1,23 @@
 {
   "models": {
-    "claude": {"cheap": ["haiku"], "mid": ["sonnet"]},
-    "codex": {"cheap": ["gpt-6-luna", "gpt-5.6-luna", "gpt-reserve"], "mid": ["gpt-6.1-terra"]},
+    "claude": {
+      "cheap": [
+        "haiku"
+      ],
+      "mid": [
+        "sonnet"
+      ]
+    },
+    "codex": {
+      "cheap": [
+        "gpt-6-luna",
+        "gpt-5.6-luna",
+        "gpt-reserve"
+      ],
+      "mid": [
+        "gpt-6.1-terra"
+      ]
+    },
     "opencode": {
       "cheap": [
         "opencode/deepseek-v4.1-flash-free",
@@ -17,11 +33,31 @@
     "max_agents": 12,
     "reference_agents": 9,
     "max_parallel": 3,
-    "families": ["claude", "codex", "opencode"],
-    "lenses": ["journey", "breaker", "resilience"]
+    "families": [
+      "claude",
+      "codex",
+      "opencode"
+    ],
+    "lenses": [
+      "journey",
+      "breaker",
+      "resilience"
+    ]
   },
-  "stop": {"saturation_rounds": 2, "max_rounds": 4, "agent_timeout_s": 900, "budget_wall_s": 7200, "max_findings_per_agent": 8},
-  "replay": {"runs": 3, "timeout_s": 120, "restore_between": true},
+  "stop": {
+    "saturation_rounds": 2,
+    "max_rounds": 4,
+    "agent_timeout_s": 900,
+    "budget_wall_s": 7200,
+    "max_findings_per_agent": 8
+  },
+  "replay": {
+    "runs": 3,
+    "timeout_s": 120,
+    "restore_between": true,
+    "stress_runs": 12,
+    "workers": 0
+  },
   "env": {
     "base_url": "http://127.0.0.1:8080",
     "health_url": "http://127.0.0.1:8080/",
@@ -32,11 +68,80 @@
     "restore_cmd": "",
     "snapshot_cmd": "",
     "state_paths": [],
-    "vars": {}
+    "vars": {},
+    "kind": "service",
+    "base_port": 18080,
+    "lane_setup_cmd": "",
+    "writable_paths": []
   },
   "guard": {
-    "safe_hosts": ["localhost", "127.0.0.1", "0.0.0.0", "db", "postgres", "mysql", "redis", "mongo", "host.docker.internal"],
-    "scan_globs": [".env*", "config/*", "*.toml", "*.yaml", "*.yml", "*.json", "*.properties"]
+    "safe_hosts": [
+      "localhost",
+      "127.0.0.1",
+      "0.0.0.0",
+      "db",
+      "postgres",
+      "mysql",
+      "redis",
+      "mongo",
+      "host.docker.internal"
+    ],
+    "scan_globs": [
+      ".env*",
+      "config/*",
+      "*.toml",
+      "*.yaml",
+      "*.yml",
+      "*.json",
+      "*.properties"
+    ]
   },
-  "tools": {"enabled": [], "skip_localstack": true}
+  "tools": {
+    "enabled": [],
+    "skip_localstack": true
+  },
+  "target": {
+    "mode": "local",
+    "ssh": {
+      "host": "",
+      "port": 22,
+      "identity": "",
+      "dir": "~/uat-runs/project"
+    }
+  },
+  "sandbox": {
+    "mode": "auto",
+    "require": true,
+    "network": {
+      "agent": "host",
+      "replay": "host"
+    },
+    "agent_home": {
+      "claude": [
+        ".claude",
+        ".claude.json"
+      ],
+      "codex": [
+        ".codex"
+      ],
+      "opencode": [
+        ".config/opencode",
+        ".local/share/opencode",
+        ".cache/opencode"
+      ]
+    },
+    "extra_ro": []
+  },
+  "fix": {
+    "auto_queue": [
+      "blocker",
+      "major",
+      "minor"
+    ],
+    "suboptimal_queue": true
+  },
+  "dashboard": {
+    "port": 7777,
+    "host": "127.0.0.1"
+  }
 }
