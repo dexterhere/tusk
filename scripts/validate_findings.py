@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from uatlib import config, finding_files, finding_schema, jload, udir, validate  # noqa: E402
+from uatlib import config, emit, finding_files, finding_schema, jload, udir, validate  # noqa: E402
 
 
 def main():
@@ -35,6 +35,7 @@ def main():
         shutil.move(str(f), str(rej / f.name))
         (rej / (f.name + ".reason")).write_text("\n".join(errs) + "\n")
         print(f"rejected {f.parent.parent.name}/{f.name}: {errs[0]}")
+    emit(r, "orchestrator", "validate", valid=ok, rejected=bad)
     print(f"valid={ok} rejected={bad}")
 
 

@@ -106,7 +106,9 @@ def main():
     if a.save_baseline:
         jdump(u / "baseline.json", sorted(cur))
     import fixq
+    from uatlib import audit_verify, coverage, emit
     fixq.sync(r)
+    emit(r, 'orchestrator', 'report_built', accepted=len(items), score=score)
     print(f"report: {out / 'report.md'}  accepted={len(items)} score={score}")
 
 

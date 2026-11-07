@@ -149,6 +149,8 @@ def emit(r, actor, type_, **data):
         os.write(fd, line.encode())
     finally:
         os.close(fd)
+    if "UAT_EVENTS_FILE" not in os.environ and type_ not in AUDIT_SKIP:      # host-side events (ssh) are not part of the local chain
+        audit(r, actor, type_, **data)
 
 
 AGENT_EVENTS = {"step", "check"}
@@ -266,3 +268,76 @@ def mark_exhausted(r, model, retry_after_s):
     h = jload(udir(r) / "model_health.json", {})
     h[model] = round(time.time() + min(max(retry_after_s, 600), 86400))
     jdump(udir(r) / "model_health.json", h)
+
+
+# ---------------------------------------------------------------- audit log (append-only, hash-chained)
+AUDIT_SKIP = {"agent_status", "step", "check"}       # heartbeats and probes are live-feed noise, not audit facts
+
+
+def audit(r, actor, type_, **data):
+    """Append one record to .uat/audit.jsonl. Each record carries the hash of the previous one, so editing or deleting any past line is
+    detectable (audit_verify). Locked, because lanes, replay and the dashboard write concurrently."""
+    import fcntl
+    path = udir(r) / "audit.jsonl"
+    with open(path, "a+") as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
+        f.seek(0)
+        last = None
+        for ln in f:
+            last = ln
+        prev = json.loads(last)["hash"] if last else "0" * 64
+        seq = (json.loads(last)["seq"] + 1) if last else 1
+        rec = {"seq": seq, "ts": round(time.time(), 2), "actor": str(actor)[:60], "type": str(type_)[:40], "data": data, "prev": prev}
+        rec["hash"] = sha(prev + json.dumps({k: rec[k] for k in ("seq", "ts", "actor", "type", "data")}, sort_keys=True, separators=(",", ":")))
+        f.write(json.dumps(rec, separators=(",", ":")) + "\n")
+
+
+def audit_read(r, limit=None):
+    out = []
+    for ln in safe_read(udir(r) / "audit.jsonl", limit=20_000_000).splitlines():
+        try:
+            out.append(json.loads(ln))
+        except ValueError:
+            out.append({"seq": -1, "broken": True})
+    return out[-limit:] if limit else out
+
+
+def audit_verify(r):
+    """(ok, count, head_hash, first_bad_seq)."""
+    prev, n = "0" * 64, 0
+    for rec in audit_read(r):
+        n += 1
+        want = sha(prev + json.dumps({k: rec.get(k) for k in ("seq", "ts", "actor", "type", "data")}, sort_keys=True, separators=(",", ":")))
+        if rec.get("prev") != prev or rec.get("hash") != want or rec.get("seq") != n:
+            return False, n, prev, n
+        prev = rec["hash"]
+    return True, n, prev, None
+
+
+# ---------------------------------------------------------------- what was tested
+def coverage(r):
+    """One row per business rule: which charters cover it, who checked it, and the outcome.
+    violated = an accepted finding cites it | passed = checked and held | failed-unconfirmed = an agent said fail but nothing replayed | untested."""
+    plan = jload(udir(r) / "plan" / "plan.json", {})
+    checks = {}
+    for e in read_events(r):
+        if e["type"] == "check" and e.get("rule"):
+            checks.setdefault(e["rule"], {})[e["actor"]] = "fail" if e.get("result") == "fail" else "pass"
+    clusters = jload(udir(r) / "clusters.json", [])
+    out = []
+    for rule in plan.get("rules", []):
+        rid = rule.get("id")
+        hit = [c for c in clusters if c.get("rule_id") == rid and c.get("verdict") in ("accept", "needs_verifier", "watch")]
+        res = checks.get(rid, {})
+        if any(c["verdict"] == "accept" for c in hit):
+            st = "violated"
+        elif "fail" in res.values() or hit:
+            st = "failed-unconfirmed"
+        elif res:
+            st = "passed"
+        else:
+            st = "untested"
+        out.append({"id": clean(rid, 40), "area": clean(rule.get("area"), 60), "statement": clean(rule.get("statement"), 300), "source": clean(rule.get("source"), 160),
+                    "confidence": clean(rule.get("confidence"), 12), "status": st, "agents": {clean(a, 40): v for a, v in res.items()},
+                    "charters": [c["id"] for c in plan.get("charters", []) if rid in c.get("rule_ids", [])], "clusters": [c["cid"] for c in hit]})
+    return out
