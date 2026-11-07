@@ -383,7 +383,7 @@ def make_handler(r, port):
                 return self._send(200, json.dumps(team.view(r)))
             if u.path == "/api/kb":
                 return self._send(200, json.dumps(kb.view(r)))
-            if u.path in ("/logo.svg", "/favicon.svg"):                 # the elephant: page logo and tab icon
+            if u.path in ("/logo.svg", "/favicon.svg", "/favicon.ico"):                 # the elephant: page logo and tab icon
                 return self._send(200, (WEB.parent / "logo.svg").read_bytes(), "image/svg+xml")
             if u.path in ("/vendor/iconoir.js", "/vendor/dicebear-gaze.js"):      # self-hosted front-end libraries, fixed allowlist
                 return self._send(200, (WEB.parent / u.path.removeprefix("/")).read_bytes(), "application/javascript; charset=utf-8")
