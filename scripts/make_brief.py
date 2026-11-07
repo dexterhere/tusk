@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Render one tester brief from a charter in .uat/plan/plan.json, for one lane. Paths in the brief are the ones the executing machine
-(this one or the SSH host) sees. Also writes agent.json, which the dashboard shows as the agent's label.
+(this one or the SSH host) sees. Also writes .uat/meta/<agent>.json (outside the agent-writable dir), the label the dashboard shows.
 
   make_brief.py --agent A4 --charter CH-07 --lane L2 --family codex --model gpt-5.6-luna [--root D]   -> .uat/agents/A4/brief.md
 plan.json: {"rules":[{id,area,statement,source,confidence}], "charters":[{id,area,lens,rule_ids,entry,tools,leads,notes}]}
@@ -12,7 +12,7 @@ from pathlib import Path
 from string import Template
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from uatlib import config, jdump, jload, lane_url, layout, udir  # noqa: E402
+from uatlib import config, jdump, jload, lane_url, layout, meta_path, udir  # noqa: E402
 
 
 def main():
@@ -38,7 +38,7 @@ def main():
     tpl = Template((Path(__file__).resolve().parent.parent / "resources" / "tester-brief-template.md").read_text())
     d = udir(r) / "agents" / a.agent
     (d / "findings").mkdir(parents=True, exist_ok=True)
-    jdump(d / "agent.json", {"id": a.agent, "family": a.family, "model": a.model, "lane": a.lane, "charter": ch["id"], "area": ch["area"], "lens": ch["lens"], "role": "tester"})
+    jdump(meta_path(r, a.agent), {"id": a.agent, "family": a.family, "model": a.model, "lane": a.lane, "charter": ch["id"], "area": ch["area"], "lens": ch["lens"], "role": "tester"})
     rd = Path(L["udir"])
     text = tpl.safe_substitute(
         agent=a.agent, family=a.family, model=a.model, charter=ch["id"], area=ch["area"], lens=ch["lens"], persona=persona, core=home / "agents" / "tester-core.md",

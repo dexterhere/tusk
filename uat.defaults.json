@@ -56,7 +56,11 @@
     "timeout_s": 120,
     "restore_between": true,
     "stress_runs": 12,
-    "workers": 0
+    "workers": 0,
+    "fail_codes": [
+      1
+    ],
+    "target_markers": []
   },
   "env": {
     "base_url": "http://127.0.0.1:8080",
@@ -112,6 +116,7 @@
   "sandbox": {
     "mode": "auto",
     "require": true,
+    "app": true,
     "network": {
       "agent": "host",
       "replay": "host"

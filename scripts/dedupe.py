@@ -8,7 +8,7 @@ even when the wording or the code location is close. Otherwise, strongest first:
 Each cluster records `merge_reasons` so a wrong merge is auditable.
 
 Verdicts: accept (replay confirmed) | watch (single-agent concurrency report that did not replay: kept as unconfirmed, never silently dropped)
-| needs_verifier | drop (single agent, not reproducible, not concurrency; tamper) | unreplayed.
+| needs_verifier (also: confirmed but the repro never touches the target) | drop (single agent, not reproducible, not concurrency; tamper) | unreplayed.
 
   dedupe.py [--root D]   -> .uat/clusters.json
 """
@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from uatlib import SEV, config, emit, finding_files, jdump, jload, replay_path, udir  # noqa: E402
+from uatlib import SEV, agent_meta, clean, config, emit, finding_files, jdump, jload, replay_path, trusted, trusted_dir, udir  # noqa: E402
 
 STOP = {"the", "a", "an", "is", "are", "of", "to", "in", "on", "for", "and", "not", "with", "when", "no", "returns", "does"}
 WEAK = 0.8
@@ -66,15 +66,27 @@ def main():
     ap.add_argument("--root", default=os.getcwd())
     r = Path(ap.parse_args().root).resolve()
     cfg = config(r)
+    plan_rules = {x["id"] for x in jload(udir(r) / "plan" / "plan.json", {}).get("rules", [])}
     items = []
     for f in finding_files(r):
-        obj = jload(f)
+        obj, digest = trusted(r, f)          # the snapshot taken before replay, never the live agent dir
+        if not obj:
+            continue
         rp = jload(replay_path(r, f), {})
-        if obj:
-            obj["_replay"] = rp.get("status", "unreplayed")
-            obj["_rate"] = rp.get("fail_rate", 0)
-            obj["_file"] = str(f.relative_to(r))
-            items.append(obj)
+        agent = f.parent.parent.name         # identity comes from the directory and the orchestrator's label, not from the finding
+        meta = agent_meta(r, agent)
+        obj.update({"agent": agent, "family": meta["family"] or "unknown", "model": meta["model"] or "unknown", "lens": meta["lens"] or obj.get("lens", "unknown")})
+        if plan_rules and obj.get("rule_id") not in plan_rules:
+            obj["rule_id"] = ""              # a rule id the plan never had cannot block or force merges
+        for k in ("title", "area"):
+            obj[k] = clean(obj[k], 120)
+        fresh = rp.get("digest") == digest
+        obj["_replay"] = rp.get("status", "unreplayed") if fresh else "unreplayed"
+        obj["_rate"] = rp.get("fail_rate", 0) if fresh else 0
+        obj["_touches"] = bool(rp.get("touches_target"))
+        obj["_digest"] = digest
+        obj["_file"] = str((trusted_dir(r, f) / "finding.json").relative_to(r))
+        items.append(obj)
     parent = list(range(len(items)))
     reasons = {i: set() for i in range(len(items))}
 
@@ -104,7 +116,9 @@ def main():
         fams = sorted({x["family"] for x in g})
         status = best_status({x["_replay"] for x in g})
         race = any(x["category"] == "concurrency" or x.get("nondeterministic") for x in g)
-        if status == "confirmed":
+        if status == "confirmed" and not any(x["_touches"] for x in g if x["_replay"] == "confirmed"):
+            verdict = "needs_verifier"       # repeatable, but never touches the target: proves nothing about the system
+        elif status == "confirmed":
             verdict = "accept"
         elif status in ("flaky", "error") or (status == "not_reproducible" and len(agents) >= 2):
             verdict = "needs_verifier"
@@ -115,12 +129,13 @@ def main():
         else:
             verdict = "drop"
         key = lead.get("rule_id") or (lead.get("suspect", {}).get("file")) or " ".join(sorted(toks(lead["title"]))[:6])
-        fp = hashlib.sha1(f"{lead['area']}|{key}".encode()).hexdigest()[:10]
+        fp = hashlib.sha256(f"{lead['area']}|{key}".encode()).hexdigest()[:16]
         out.append({
-            "cid": "C-" + fp[:6], "fp": fp, "title": lead["title"], "severity": lead["severity"], "category": lead["category"],
+            "cid": "C-" + fp[:12], "fp": fp, "title": lead["title"], "severity": lead["severity"], "category": lead["category"],
             "area": lead["area"], "rule_id": lead.get("rule_id", ""), "members": [x["id"] for x in g], "files": [x["_file"] for x in g],
             "agents": agents, "families": fams, "agreement": len(agents), "replay": status, "verdict": verdict,
             "lenses": sorted({x["lens"] for x in g}),
+            "digest": hashlib.sha256("".join(sorted(x["_digest"] for x in g)).encode()).hexdigest()[:16],
             "merge_reasons": sorted(reasons[find(items.index(lead))]), "fail_rate": max(x["_rate"] for x in g), "kind": lead.get("kind", "defect"),
         })
     out.sort(key=lambda c: (SEV[c["severity"]], -c["agreement"]))

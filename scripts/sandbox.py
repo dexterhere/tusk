@@ -15,7 +15,8 @@ from pathlib import Path
 
 ENV_KEEP = ("PATH", "LANG", "LC_ALL", "TERM", "TZ")
 ENV_DENY = re.compile(r"SECRET|PASSWORD|PASSWD|TOKEN|CREDENTIAL|API_?KEY|AWS_|PRIVATE|SSH_|GPG|^GH_|^GITHUB_", re.I)
-HOME_RO = (".local/share/mise", ".config/mise", ".local/bin", ".cargo", ".rustup", ".local/share/uv", ".nvm")
+# tool dirs only: never a whole credential-bearing dir (.cargo/credentials.toml, .npmrc, .config/gh ...)
+HOME_RO = (".local/share/mise", ".config/mise", ".local/bin", ".cargo/bin", ".cargo/registry", ".rustup", ".local/share/uv")
 
 
 def level(cfg):
@@ -88,3 +89,10 @@ def wrap(cfg, argv, *, cwd, ws=None, tools=None, toolkit=None, home=None, net="h
                 if not f.is_symlink() and f.resolve().is_relative_to(Path(home).resolve()):
                     b += ["--bind", str(f), str(real / f.relative_to(home))]
     return b + ["--chdir", str(cwd), "--setenv", "HOME", str(real), *argv]
+
+
+def limits():
+    """preexec_fn for untrusted children: a repro cannot fill the disk with one file. (No process-count limit: RLIMIT_NPROC makes bwrap
+    fail to create namespaces. A fork bomb is bounded by the replay timeout and the process-group kill, not prevented.)"""
+    import resource
+    resource.setrlimit(resource.RLIMIT_FSIZE, (256 << 20, 256 << 20))

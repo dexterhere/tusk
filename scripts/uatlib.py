@@ -1,7 +1,9 @@
 """Shared helpers for uat-swarm scripts. Stdlib only."""
+import hashlib
 import json
 import os
 import re
+import shutil
 import time
 from pathlib import Path
 
@@ -66,6 +68,8 @@ def validate(obj, schema, path="$"):
         for k, sub in schema.get("properties", {}).items():
             if k in obj:
                 errs += validate(obj[k], sub, f"{path}.{k}")
+    if isinstance(obj, list) and len(obj) > schema.get("maxItems", 10**9):
+        errs.append(f"{path}: more than {schema['maxItems']} items")
     if isinstance(obj, list) and "items" in schema:
         for i, v in enumerate(obj):
             errs += validate(v, schema["items"], f"{path}[{i}]")
@@ -94,36 +98,131 @@ def replay_path(r, finding_file):
     return udir(r) / "replays" / f.parent.parent.name / (f.stem + ".replay.json")
 
 
+# ---------------------------------------------------------------- reading files an agent can write
+MAX_BYTES = 1_000_000
+CTRL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+
+def clean(text, n=300):
+    """Printable, single-line, bounded: for anything an agent wrote that we display."""
+    return CTRL.sub("", str(text)).replace("\n", " ").replace("\r", " ")[:n]
+
+
+def safe_read(path, limit=MAX_BYTES, tail=False):
+    """Read a regular, non-symlink file with a size cap. Returns '' otherwise. Never raises."""
+    try:
+        p = Path(path)
+        if p.is_symlink() or not p.is_file():
+            return ""
+        with open(p, "rb") as f:
+            if tail:
+                f.seek(max(0, p.stat().st_size - limit))
+            return f.read(limit).decode("utf-8", "replace")
+    except OSError:
+        return ""
+
+
+def safe_json(path, default=None):
+    try:
+        return json.loads(safe_read(path))
+    except ValueError:
+        return default
+
+
+def meta_path(r, agent):
+    """Agent label (family/model/lens/charter). Written by the orchestrator OUTSIDE the agent-writable dir."""
+    return udir(r) / "meta" / f"{agent}.json"
+
+
+def agent_meta(r, agent):
+    m = jload(meta_path(r, agent), {})
+    return {k: clean(m.get(k, ""), 60) for k in ("id", "family", "model", "lane", "charter", "area", "lens", "role")}
+
+
 # ---------------------------------------------------------------- events (feed the live dashboard)
 def emit(r, actor, type_, **data):
-    """Append one event to .uat/events.jsonl. One O_APPEND write per line, so parallel writers do not interleave."""
+    """Append one event. One O_APPEND write per line. Host-side scripts write events.host.jsonl (UAT_EVENTS_FILE) so the SSH mirror
+    never clobbers the orchestrator's own events.jsonl."""
     line = json.dumps({"ts": round(time.time(), 2), "actor": actor, "type": type_, **data}, separators=(",", ":")) + "\n"
-    fd = os.open(udir(r) / "events.jsonl", os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)
+    fd = os.open(udir(r) / os.environ.get("UAT_EVENTS_FILE", "events.jsonl"), os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)
     try:
         os.write(fd, line.encode())
     finally:
         os.close(fd)
 
 
+AGENT_EVENTS = {"step", "check"}
+
+
 def read_events(r, since=0):
-    """Orchestrator events plus each agent's own events.jsonl (actor forced to the agent's dir name), sorted by time."""
+    """Orchestrator/host events plus each agent's own events.jsonl. Agent files are untrusted: only step/check records, actor forced to the
+    dir name, timestamps clamped to now, every field a bounded string, size-capped, never raises."""
+    now = time.time()
     out = []
-    sources = [(udir(r) / "events.jsonl", None)] + [(p, p.parent.name) for p in sorted((udir(r) / "agents").glob("*/events.jsonl"))]
+    sources = [(p, None) for p in sorted(udir(r).glob("events*.jsonl"))] + [(p, p.parent.name) for p in sorted((udir(r) / "agents").glob("*/events.jsonl"))]
     for path, actor in sources:
-        try:
-            lines = path.read_text(errors="ignore").splitlines()[-2000:]
-        except OSError:
-            continue
-        for ln in lines:
+        for ln in safe_read(path, tail=True).splitlines()[-2000:]:
             try:
                 e = json.loads(ln)
             except ValueError:
                 continue
+            if not isinstance(e, dict) or not isinstance(e.get("ts"), (int, float)) or isinstance(e.get("ts"), bool):
+                continue
             if actor:
-                e["actor"] = actor
-            if e.get("ts", 0) > since:
+                if e.get("type") not in AGENT_EVENTS:
+                    continue
+                e = {"ts": min(float(e["ts"]), now), "actor": actor, "type": e["type"], **{k: clean(e.get(k, ""), 200) for k in ("text", "rule", "result", "note")}}
+            elif not isinstance(e.get("actor"), str) or not isinstance(e.get("type"), str):
+                continue
+            if e["ts"] > since:
                 out.append(e)
     return sorted(out, key=lambda e: e["ts"])
+
+
+# ---------------------------------------------------------------- trusted snapshots of findings
+def sha(data):
+    return hashlib.sha256(data if isinstance(data, bytes) else data.encode()).hexdigest()
+
+
+def trusted_dir(r, finding_file):
+    f = Path(finding_file)
+    return udir(r) / "trusted" / f.parent.parent.name / f.stem
+
+
+def snapshot_finding(r, f):
+    """Copy a finding and its declared repro files out of the agent-writable dir, once, before anything runs.
+    Everything downstream (replay, dedupe, report, fix queue) uses this copy and its digest, never the live agent dir.
+    Returns (finding_dict, digest) or (None, '') when unusable."""
+    f = Path(f)
+    raw = safe_read(f)
+    try:
+        obj = json.loads(raw)
+    except ValueError:
+        return None, ""
+    t = trusted_dir(r, f)
+    shutil.rmtree(t, ignore_errors=True)
+    (t / "files").mkdir(parents=True)
+    h = hashlib.sha256(raw.encode())
+    agent_dir = f.parent.parent.resolve()
+    for rel in (obj.get("repro", {}).get("files") or [])[:20]:
+        src, dst = agent_dir / rel, t / "files" / rel
+        if ".." in Path(rel).parts or Path(rel).is_absolute() or not src.is_file() or src.is_symlink() or not src.resolve().is_relative_to(agent_dir):
+            continue
+        if src.stat().st_size > 5_000_000:
+            continue
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst, follow_symlinks=False)
+        h.update(rel.encode() + dst.read_bytes())
+    digest = h.hexdigest()
+    (t / "finding.json").write_text(raw)
+    (t / "digest").write_text(digest)
+    return obj, digest
+
+
+def trusted(r, f):
+    """(finding, digest) from the snapshot taken before replay, or (None, '') if there is none."""
+    t = trusted_dir(r, f)
+    return jload(t / "finding.json"), (t / "digest").read_text() if (t / "digest").exists() else ""
 
 
 # ---------------------------------------------------------------- lanes and host layout

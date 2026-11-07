@@ -11,16 +11,25 @@ from pathlib import Path
 
 from uatlib import HOME, layout, udir
 
-HEAVY = ("workspace/", "lanes/", "tools/", "snapshots/", "fix/", "logs/*.log")
+import re
+
+HOST_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9._@:-]*$")      # no leading '-': cannot become an ssh option
+
+# The host is trusted to EXECUTE, not to decide. Only these host-produced files are mirrored back; nothing the orchestrator owns
+# (clusters, verdicts, fix queue, report, plan, state, baseline) is ever overwritten from the host.
+MIRROR_IN = ("agents/", "agents/*/", "agents/*/findings/", "agents/*/findings/F-*.json", "agents/*/events.jsonl",
+             "replays/***", "trusted/***", "ledger.jsonl", "events.host.jsonl")
 
 
 def ssh_argv(cfg):
     s = cfg["target"]["ssh"]
     if os.environ.get("UAT_SSH_CMD"):
         return shlex.split(os.environ["UAT_SSH_CMD"])
+    if not HOST_RE.match(s["host"]):
+        raise SystemExit(f"invalid target.ssh.host {s['host']!r}")
     a = ["ssh", "-o", "BatchMode=yes", "-o", "ControlMaster=auto", "-o", "ControlPath=~/.ssh/uat-%C", "-o", "ControlPersist=300",
          "-o", "ServerAliveInterval=20", "-p", str(s["port"])]
-    return a + (["-i", s["identity"]] if s["identity"] else []) + [s["host"]]
+    return a + (["-i", s["identity"]] if s["identity"] else []) + ["--", s["host"]]
 
 
 def _rpath(p):
@@ -63,15 +72,16 @@ def sync_up(cfg, r):
 
 
 def sync_down(cfg, r):
-    """Everything the host produced, except heavy trees. Never deletes local files."""
+    """Allowlist mirror (see MIRROR_IN). No symlinks/devices, bounded file size, permissions normalised so the host cannot
+    plant unreadable dirs or executables locally."""
     u = udir(r)
-    ex = [f"--exclude={h}" for h in HEAVY] + ["--exclude=agents/*/brief.md", "--exclude=uat.json", "--exclude=state.json", "--exclude=plan/", "--exclude=report/", "--exclude=fixqueue.json"]
-    # a compromised host must not plant symlinks/devices in the local mirror
-    _rsync(cfg, _dest(cfg, ".uat/"), f"{u}/", ex + ["--no-links", "--no-devices", "--no-specials", "--max-size=20M"])
+    inc = [f"--include={x}" for x in MIRROR_IN]
+    _rsync(cfg, _dest(cfg, ".uat/"), f"{u}/", [*inc, "--exclude=*", "--no-links", "--no-devices", "--no-specials", "--max-size=5M",
+                                              "--no-perms", "--chmod=D755,F644"])
 
 
 def python_cmd(cfg, script, args):
     """Remote command line for toolkit/scripts/<script>.py with --root rewritten to the host's run directory."""
     h = _rpath(layout(cfg, ".")["home"])
     root = _rpath(layout(cfg, ".")["root"])
-    return f'python3 "{h}/scripts/{script}.py" --root "{root}" ' + " ".join(shlex.quote(a) for a in args)
+    return f'UAT_EVENTS_FILE=events.host.jsonl python3 "{h}/scripts/{script}.py" --root "{root}" ' + " ".join(shlex.quote(a) for a in args)

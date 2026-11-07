@@ -35,8 +35,8 @@ button.b{border:1px solid var(--line);background:var(--card);color:var(--ink);pa
 <nav id="tabs"></nav>
 <main id="view"></main>
 <div id="pop"></div>
-<script>
-const TOKEN="__TOKEN__";
+<script nonce="__NONCE__">
+const TOKEN=decodeURIComponent(location.hash.slice(1));history.replaceState(null,'',location.pathname);
 const FAM={claude:'var(--claude)',codex:'var(--codex)',opencode:'var(--opencode)',tool:'var(--tool)',fix:'var(--fix)',orchestrator:'var(--ink)'};
 const SEV={blocker:'var(--blocker)',major:'var(--major)',minor:'var(--minor)',nit:'var(--nit)'};
 const PETS=['cat','dog','fox','panda','frog','rabbit','owl','penguin','bear','koala'];
@@ -56,7 +56,7 @@ const ago=t=>{const s=Math.max(0,Math.round((S.now-t)));return s<60?s+'s':Math.r
 function dur(a){const e=a.ended||S.now;return a.started?Math.round(e-a.started)+'s':'-'}
 function agentColor(a){return a.role==='fix'?FAM.fix:FAM[a.family]||FAM.tool}
 function agentPet(a,size){return pet(a.id,agentColor(a),size,null,a.role==='fix')}
-function popFor(a){return `<h4>${h(a.id)} ${a.role==='fix'?'· fix agent':'· tester'}</h4><dl><dt>model</dt><dd>${h(a.family)} / ${h(a.model)}</dd><dt>lens</dt><dd>${h(a.lens||'-')}</dd><dt>charter</dt><dd>${h(a.charter||'-')} ${h(a.area||'')}</dd><dt>lane</dt><dd>${h(a.lane||'-')}</dd><dt>status</dt><dd>${h(a.status)} · ${dur(a)}</dd><dt>findings</dt><dd>${a.findings}</dd><dt>doing</dt><dd>${h(a.now)}</dd></dl>`}
+function popFor(a){return `<h4>${h(a.id)} ${a.role==='fix'?'· fix agent':'· tester'}</h4><dl><dt>model</dt><dd>${h(a.family)} / ${h(a.model)}</dd><dt>lens</dt><dd>${h(a.lens||'-')}</dd><dt>charter</dt><dd>${h(a.charter||'-')} ${h(a.area||'')}</dd><dt>lane</dt><dd>${h(a.lane||'-')}</dd><dt>status</dt><dd>${h(a.status)} · ${dur(a)}</dd><dt>findings</dt><dd>${h(a.findings)}</dd><dt>doing</dt><dd>${h(a.now)}</dd></dl>`}
 function showPop(html,e){const p=document.getElementById('pop');p.innerHTML=html;p.style.display='block';const x=Math.min(e.clientX+14,innerWidth-320),y=Math.min(e.clientY+14,innerHeight-220);p.style.left=x+'px';p.style.top=y+'px'}
 function hidePop(){document.getElementById('pop').style.display='none'}
 document.addEventListener('mousemove',e=>{const t=e.target.closest('[data-pop]');if(t){const [k,id]=t.dataset.pop.split('|');const a=k==='agent'?S.agents.find(x=>x.id===id):null;if(a)showPop(popFor(a),e);else if(k==='orch')showPop(`<h4>Orchestrator</h4><dl><dt>model</dt><dd>${h(S.orchestrator.model)}</dd><dt>role</dt><dd>plans, assigns charters, judges by script, reports</dd></dl>`,e)}else if(!e.target.closest('#graph'))hidePop()});
@@ -70,8 +70,8 @@ function header(){
 }
 function live(){
   if(!S.agents.length)return `<div class="empty">No agents yet. Run /uat-execute.</div>`;
-  const cards=S.agents.map(a=>`<div class="card agent" data-pop="agent|${h(a.id)}">${agentPet(a,52)}<div class="t"><div><b>${h(a.id)}</b> <span class="dot ${a.status}"></span> <span style="color:var(--mut);font-size:12px">${h(a.status)}</span></div>
-   <div style="margin-top:3px"><span class="chip" style="color:${agentColor(a)};border-color:${agentColor(a)}">${h(a.family||'?')}</span> <span class="chip">${h(a.lens||a.role||'')}</span> <span class="chip">${a.findings} found</span></div>
+  const cards=S.agents.map(a=>`<div class="card agent" data-pop="agent|${h(a.id)}">${agentPet(a,52)}<div class="t"><div><b>${h(a.id)}</b> <span class="dot ${h(a.status)}"></span> <span style="color:var(--mut);font-size:12px">${h(a.status)}</span></div>
+   <div style="margin-top:3px"><span class="chip" style="color:${agentColor(a)};border-color:${agentColor(a)}">${h(a.family||'?')}</span> <span class="chip">${h(a.lens||a.role||'')}</span> <span class="chip">${h(a.findings)} found</span></div>
    <div class="now">${h(a.charter||'')} ${h(a.now)}</div></div></div>`).join('');
   const feed=[...S.events].reverse().map(e=>{const a=S.agents.find(x=>x.id===e.actor);const av=a?agentPet(a,20):pet('orch','#6b7280',20,'elephant');return `<div><time>${ago(e.ts)}</time>${av}<span>${h(e.actor)} ${h(e.type.replace('_',' '))} ${h(e.text||e.now||e.rule&&e.rule+' '+e.result||e.status||e.state||'')}</span></div>`}).join('');
   const rules=S.rules.map(r=>{const res=S.agents.map(a=>a.checks[r.id]).filter(Boolean);const st=res.includes('fail')?'fail':res.includes('pass')?'pass':'';return `<span class="rule ${st}" title="${h(r.statement)}">${h(r.id)}</span>`}).join('');
@@ -80,14 +80,14 @@ function live(){
 function findings(){
   const c=S.clusters;if(!c.length)return `<div class="empty">No clusters yet. They appear after /uat-execute and /uat-feedback.</div>`;
   const n=s=>c.filter(x=>x.severity===s).length,mx=Math.max(1,...['blocker','major','minor','nit'].map(n));
-  const bars=['blocker','major','minor','nit'].map(s=>`<div><i style="height:${n(s)/mx*70}px;background:${SEV[s]}"></i>${n(s)} ${s}</div>`).join('');
+  const bars=['blocker','major','minor','nit'].map(s=>`<div><i style="height:${n(s)/mx*70}px;background:${SEV[s]}"></i>${n(s)} ${h(s)}</div>`).join('');
   const rd=S.rounds.length?`<svg width="100%" height="90" viewBox="0 0 ${Math.max(S.rounds.length*60,120)} 90"><polyline fill="none" stroke="var(--acc)" stroke-width="2" points="${S.rounds.map((r,i)=>`${i*60+20},${80-Math.min(70,(r.new_clusters||0)*12)}`).join(' ')}"/>${S.rounds.map((r,i)=>`<circle cx="${i*60+20}" cy="${80-Math.min(70,(r.new_clusters||0)*12)}" r="4" fill="var(--acc)"/><text x="${i*60+14}" y="90" font-size="10" fill="var(--mut)">r${r.round}</text>`).join('')}</svg>`:'<div class="empty">no rounds</div>';
-  const rows=c.map(x=>`<tr><td><span class="sev ${x.severity}">${x.severity}</span></td><td>${h(x.cid)}</td><td>${h(x.title)}<div style="color:var(--mut);font-size:12px">${h(x.merge_reasons?.join(', ')||'')}</div></td><td>${h(x.area)}</td><td>${x.agents.map(a=>h(a)).join(', ')}</td><td>${h(x.replay)}${x.fail_rate&&x.fail_rate<1?' '+Math.round(x.fail_rate*100)+'%':''}</td><td>${h(x.verdict)}</td></tr>`).join('');
+  const rows=c.map(x=>`<tr><td><span class="sev ${h(x.severity)}">${h(x.severity)}</span></td><td>${h(x.cid)}</td><td>${h(x.title)}<div style="color:var(--mut);font-size:12px">${h(x.merge_reasons?.join(', ')||'')}</div></td><td>${h(x.area)}</td><td>${x.agents.map(a=>h(a)).join(', ')}</td><td>${h(x.replay)}${x.fail_rate&&x.fail_rate<1?' '+Math.round(Number(x.fail_rate)*100)+'%':''}</td><td>${h(x.verdict)}</td></tr>`).join('');
   return `<div class="grid" style="grid-template-columns:1fr 1fr"><div class="card"><h2 style="margin-top:0">By severity</h2><div class="bars">${bars}</div></div><div class="card"><h2 style="margin-top:0">New clusters per round</h2>${rd}</div></div><h2>Clusters</h2><div class="card" style="padding:0;overflow:auto"><table><tr><th>sev</th><th>id</th><th>title</th><th>area</th><th>agents</th><th>replay</th><th>verdict</th></tr>${rows}</table></div>`;
 }
 function fixes(){
   const q=S.fixqueue;if(!q.length)return `<div class="empty">Nothing queued. Failed or non-optimal results land here after /uat-feedback.</div>`;
-  const rows=q.map(i=>`<tr><td>${i.state==='proposed'?`<input type="checkbox" data-id="${h(i.cid)}" ${sel.has(i.cid)?'checked':''}>`:''}</td><td><span class="sev ${i.severity}">${i.severity}</span></td><td>${h(i.cid)}</td><td>${h(i.title)}</td><td>${h(i.kind)}</td><td>${h(i.state)}${i.branch?'<div style="color:var(--mut);font-size:12px">'+h(i.branch)+'</div>':''}</td></tr>`).join('');
+  const rows=q.map(i=>`<tr><td>${i.state==='proposed'?`<input type="checkbox" data-id="${h(i.cid)}" ${sel.has(i.cid)?'checked':''}>`:''}</td><td><span class="sev ${h(i.severity)}">${h(i.severity)}</span></td><td>${h(i.cid)}</td><td>${h(i.title)}</td><td>${h(i.kind)}</td><td>${h(i.state)}${i.branch?'<div style="color:var(--mut);font-size:12px">'+h(i.branch)+'</div>':''}</td></tr>`).join('');
   const np=q.filter(i=>i.state==='proposed').length,na=q.filter(i=>i.state==='approved').length;
   return `<p style="color:var(--mut)">Approving here only gives permission. Run <code>/uat-fix</code> and fix agents will start on approved items. Nothing is pushed or merged.</p>
   <p><button class="b p" id="ap" ${sel.size?'':'disabled'}>Approve selected (${sel.size})</button> <button class="b" id="apb" ${np?'':'disabled'}>Approve all blocker+major</button> <button class="b" id="rj" ${sel.size?'':'disabled'}>Reject selected</button> <span class="chip">${np} proposed</span> <span class="chip">${na} approved</span></p>

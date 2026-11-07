@@ -15,7 +15,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from uatlib import SEV, config, emit, jdump, jload, udir  # noqa: E402
 
-STATES = ("proposed", "approved", "fixing", "proven", "failed", "needs_human", "rejected")
+STATES = ("proposed", "approved", "fixing", "proven", "failed", "needs_human", "rejected", "stale")
 FIXABLE = ("accept",)
 
 
@@ -38,8 +38,18 @@ def sync(r):
             continue
         if c["kind"] == "suboptimal" and not cfg["fix"]["suboptimal_queue"]:
             continue
-        it = have.setdefault(c["cid"], {"cid": c["cid"], "state": "proposed", "history": []})
+        it = have.setdefault(c["cid"], {"cid": c["cid"], "state": "proposed", "history": [], "digest": c["digest"]})
+        if it["digest"] != c["digest"] and it["state"] in ("approved", "fixing", "proven", "stale", "rejected"):
+            # the finding changed after it was judged: an earlier approval or rejection does not carry over
+            it["history"].append({"from": it["state"], "to": "proposed", "by": "orchestrator", "note": "content changed, needs a fresh decision"})
+            it["state"] = "proposed"
+        it["digest"] = c["digest"]
         it.update({k: c[k] for k in ("title", "severity", "category", "area", "kind", "fp", "agreement", "fail_rate")} | {"verdict": v, "rule_id": c["rule_id"]})
+    seen = {c["cid"] for c in jload(udir(r) / "clusters.json", [])}
+    for it in have.values():
+        if it["cid"] not in seen and it["state"] in ("proposed", "approved"):
+            it["history"].append({"from": it["state"], "to": "stale", "by": "orchestrator", "note": "cluster no longer present"})
+            it["state"] = "stale"
     items = sorted(have.values(), key=lambda i: (SEV[i["severity"]], i["cid"]))
     jdump(path(r), items)
     return items

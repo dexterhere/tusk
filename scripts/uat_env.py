@@ -19,6 +19,7 @@ import re
 import shutil
 import signal
 import concurrent.futures as cf
+import sandbox
 import subprocess
 import sys
 import time
@@ -27,12 +28,12 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from uatlib import config, emit, lane_names, lane_port, lane_url, udir  # noqa: E402
+from uatlib import HOME, config, emit, lane_names, lane_port, lane_url, udir  # noqa: E402
 
 URL_RE = re.compile(r"\b(postgres(?:ql)?|mysql|mariadb|mongodb(?:\+srv)?|redis|rediss|amqps?|mssql)://(?:[^\s'\"<>/@]*@)?([A-Za-z0-9_.${}-]+)")
 KEY_RE = re.compile(r"(sk_live_[A-Za-z0-9]{10,}|AKIA[0-9A-Z]{16}|xox[bp]-[A-Za-z0-9-]{10,}|ghp_[A-Za-z0-9]{30,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)")
-COPY_IGNORE = {".git", ".uat", "node_modules", "target", ".venv", "venv", "__pycache__", "graphify-out", ".dart_tool", ".next"}
-SECRET_FILES = (".env", ".env.*", "*.pem", "*.key", "id_rsa*", "*.p12", "*.keystore", "credentials*.json", "service-account*.json")
+COPY_IGNORE = {".git", ".uat", "node_modules", "target", ".venv", "venv", "__pycache__", "graphify-out", ".dart_tool", ".next", ".aws", ".ssh", ".gnupg", ".docker", ".kube"}
+SECRET_FILES = (".env", ".env.*", "*.pem", "*.key", "id_rsa*", "id_ed25519*", "*.p12", "*.keystore", "credentials*.json", "service-account*.json", ".npmrc", ".netrc", ".pypirc", ".git-credentials", "*.tfvars", "*.tfstate", ".htpasswd")
 KEEP_FILES = (".env.example", ".env.sample", ".env.template")
 
 
@@ -114,9 +115,14 @@ class Lane:
         if not e["start_cmd"] or self.pid():
             return
         self.dir.mkdir(parents=True, exist_ok=True)
-        # start_cmd is the user's own command from .uat/uat.json, approved in /uat-init; shell=True is deliberate.
+        # start_cmd is the user's own command from .uat/uat.json (approved in /uat-init). The app is the thing testers attack and
+        # it executes code from the lane workspace that testers can write to, so it runs inside the same sandbox (sandbox.app=false to opt out,
+        # e.g. for docker-compose apps).
+        cmd = ["bash", "-c", self.fmt(e["start_cmd"])]
+        if self.cfg["sandbox"]["app"]:
+            cmd = sandbox.wrap(self.cfg, cmd, cwd=self.ws, tools=udir(self.r) / "tools", toolkit=HOME, net="host")
         with open(self.dir / "app.log", "ab") as lf:
-            p = subprocess.Popen(self.fmt(e["start_cmd"]), shell=True, cwd=self.ws, env=self.env(), stdout=lf, stderr=subprocess.STDOUT, start_new_session=True)
+            p = subprocess.Popen(cmd, cwd=self.ws, env=self.env(), stdout=lf, stderr=subprocess.STDOUT, start_new_session=True)
         self.pidfile.write_text(str(p.pid))
         end = time.time() + e["health_timeout_s"]
         while time.time() < end:
@@ -205,10 +211,25 @@ def golden_env(r, cfg):
 
 
 def stage(r, cfg):
+    """Scrubbed copy of the repo. In a git repo only tracked + non-ignored files are copied (so untracked junk and ignored secrets stay out);
+    then the secret-name denylist runs on top. Without git it falls back to the denylist alone."""
     w = ws(r)
     if w.exists():
         shutil.rmtree(w)
-    shutil.copytree(r, w, ignore=ignore_fn, symlinks=True)
+    g = subprocess.run(["git", "-C", str(r), "ls-files", "-co", "--exclude-standard", "-z"], capture_output=True)
+    if g.returncode:
+        shutil.copytree(r, w, ignore=ignore_fn, symlinks=True)
+        return
+    for rel in filter(None, g.stdout.decode(errors="replace").split("\0")):
+        parts = Path(rel).parts
+        if COPY_IGNORE & set(parts) or any(fnmatch.fnmatch(parts[-1], pat) for pat in SECRET_FILES) and parts[-1] not in KEEP_FILES:
+            continue
+        src = Path(r) / rel
+        if src.is_symlink() or not src.is_file():
+            continue
+        (w / rel).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, w / rel)
+    w.mkdir(exist_ok=True)
 
 
 def finish(r, cfg):

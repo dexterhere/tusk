@@ -11,10 +11,15 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import host  # noqa: E402
-from uatlib import HOME, config, is_remote, udir  # noqa: E402
+from uatlib import CTRL, HOME, config, is_remote, udir  # noqa: E402
 
 HOST_SIDE = {"run_agent", "replay", "uat_tools", "hostinfo", "uat_env"}
 LOCAL_ENV_CMDS = {"guard"}          # scans the user's repo: always local
+
+
+def clean(text, n):
+    """Host output goes to the terminal: drop control characters (escape sequences) but keep newlines and tabs."""
+    return CTRL.sub("", text)[:n]
 
 
 def split_root(argv):
@@ -55,8 +60,8 @@ def main():
     (udir(r) / ".toolkit_synced").touch()
     host.sync_up(cfg, r)
     p = host.rsh(cfg, host.python_cmd(cfg, script, args) if script != "hostinfo" else f'python3 "{host.layout(cfg, ".")["home"]}/scripts/hostinfo.py"')
-    sys.stdout.write(p.stdout)
-    sys.stderr.write(p.stderr)
+    sys.stdout.write(clean(p.stdout, 200_000))
+    sys.stderr.write(clean(p.stderr, 200_000))
     host.sync_down(cfg, r)
     sys.exit(p.returncode)
 

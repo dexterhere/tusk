@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from uatlib import finding_files, finding_schema, jload, udir, validate  # noqa: E402
+from uatlib import config, finding_files, finding_schema, jload, udir, validate  # noqa: E402
 
 
 def main():
@@ -19,9 +19,13 @@ def main():
     ap.add_argument("--root", default=os.getcwd())
     r = Path(ap.parse_args().root).resolve()
     schema, ok, bad = finding_schema(), 0, 0
+    cap, seen = config(r)["stop"]["max_findings_per_agent"], {}
     for f in finding_files(r):
         obj = jload(f)
+        seen[f.parent.parent.name] = seen.get(f.parent.parent.name, 0) + 1
         errs = ["not valid JSON"] if obj is None else validate(obj, schema)
+        if not errs and seen[f.parent.parent.name] > cap:
+            errs = [f"over the per-agent limit of {cap} findings"]
         if not errs:
             ok += 1
             continue
