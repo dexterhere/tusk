@@ -2,6 +2,7 @@
 Run: python3 -m unittest discover -s tests -v   (from the uat-swarm dir)
 """
 import json
+import os
 import shutil
 import socket
 import subprocess
@@ -164,3 +165,124 @@ class Misc(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Hardening(unittest.TestCase):
+    """The five weaknesses from the first audit, each pinned by a test."""
+
+    def test_dedupe_does_not_over_merge(self):
+        # similar wording, different rule ids and different code: must stay two clusters
+        with tempfile.TemporaryDirectory() as t:
+            root = Path(t)
+            (root / ".uat").mkdir()
+            for aid, rule, title in (("A1", "R-PRICE-01", "Order total shows wrong amount after coupon applied"), ("A2", "R-PRICE-07", "Order total shows wrong amount after refund applied")):
+                d = root / ".uat/agents" / aid / "findings"
+                d.mkdir(parents=True)
+                (d / f"F-{aid}.json").write_text(json.dumps(finding(f"F-{aid}", aid, "claude", rule, title, "neg_qty", area="pricing", cmd=f"true {aid}")))
+            run("dedupe.py", "--root", t)
+            self.assertEqual(len(json.loads((root / ".uat/clusters.json").read_text())), 2)
+
+    def test_single_agent_race_is_kept_not_dropped(self):
+        with tempfile.TemporaryDirectory() as t:
+            root = mkroot(t)
+            d = root / ".uat/agents/A1/findings"
+            d.mkdir(parents=True)
+            f = finding("F-R1", "A1", "claude", "R-RACE-01", "Parallel checkout charges twice", "x", area="orders", cmd="exit 0")
+            f["category"] = "concurrency"
+            (d / "F-R1.json").write_text(json.dumps(f))
+            run("replay.py", "--root", t)
+            run("dedupe.py", "--root", t)
+            c = json.loads((root / ".uat/clusters.json").read_text())[0]
+            self.assertEqual(c["verdict"], "watch")       # not reproduced, but never silently dropped
+            run("uat_env.py", "lanes", "down", "--root", t)
+
+    def test_parallel_lanes_are_isolated(self):
+        with tempfile.TemporaryDirectory() as t:
+            root = mkroot(t, {"swarm": {"max_parallel": 3}})
+            r = run("uat_env.py", "lanes", "up", "--root", t)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            ports = {line.split()[2] for line in r.stdout.splitlines() if line.startswith("L")}
+            self.assertEqual(len(ports), 3)
+            run("uat_env.py", "lanes", "down", "--root", t)
+
+    def test_tamper_is_attributed_and_reverted(self):
+        with tempfile.TemporaryDirectory() as t:
+            root = mkroot(t)
+            sh = f"echo x >> $UAT_WS/demo_app/rules.json"
+            r = run("run_agent.py", "--root", t, "--id", "A1", "--family", "codex", "--model", "m", "--lane", "L1", "--cmd", "bash -c true")
+            self.assertEqual(r.returncode, 0, r.stderr)
+            (root / ".uat/lanes/L1/ws/demo_app/rules.json").write_text("tampered")
+            self.assertEqual(run("uat_env.py", "lane", "tamper", "L1", "--root", t).returncode, 2)
+            self.assertEqual(run("uat_env.py", "lane", "tamper", "L1", "--root", t).returncode, 0)  # reverted
+            run("uat_env.py", "lanes", "down", "--root", t)
+
+    @unittest.skipUnless(shutil.which("bwrap"), "bubblewrap not installed")
+    def test_sandbox_confines_agent_commands(self):
+        sys.path.insert(0, str(S))
+        import sandbox
+        import uatlib
+        cfg = uatlib.config(tempfile.gettempdir())
+        with tempfile.TemporaryDirectory() as t:
+            d = Path(t) / "a"
+            d.mkdir()
+            probe = "touch /usr/x 2>/dev/null; echo usr=$?; ls /run | grep -c docker; ls ~/.ssh 2>/dev/null | wc -l; touch ok; echo wrote=$?"
+            p = subprocess.run(sandbox.wrap(cfg, ["bash", "-c", probe], cwd=d), capture_output=True, text=True)
+            self.assertEqual(p.stdout.split(), ["usr=1", "0", "0", "wrote=0"], p.stderr)
+            self.assertTrue((d / "ok").exists())
+            env = sandbox.clean_env(cfg, {"UAT_X": "1"})
+            os.environ["MY_API_KEY"] = "secret"
+            self.assertNotIn("MY_API_KEY", sandbox.clean_env(cfg))
+            self.assertIn("UAT_X", env)
+
+    def test_symlinked_findings_dir_is_ignored(self):
+        with tempfile.TemporaryDirectory() as t:
+            root = Path(t)
+            real = root / "elsewhere"
+            real.mkdir()
+            (real / "F-1.json").write_text("{}")
+            agent = root / ".uat/agents/A1"
+            agent.mkdir(parents=True)
+            (agent / "findings").symlink_to(real)
+            sys.path.insert(0, str(S))
+            import uatlib
+            self.assertEqual(uatlib.finding_files(root), [])
+
+    def test_fix_queue_needs_approval(self):
+        with tempfile.TemporaryDirectory() as t:
+            root = Path(t)
+            (root / ".uat").mkdir()
+            c = {"cid": "C-1", "fp": "x", "title": "Totals wrong", "severity": "major", "category": "functional", "area": "pricing", "rule_id": "R-1", "agreement": 1,
+                 "fail_rate": 1.0, "kind": "defect", "verdict": "accept", "members": [], "files": []}
+            (root / ".uat/clusters.json").write_text(json.dumps([c]))
+            run("fixq.py", "sync", "--root", t)
+            q = json.loads((root / ".uat/fixqueue.json").read_text())
+            self.assertEqual(q[0]["state"], "proposed")        # nothing starts unasked
+            run("fixq.py", "approve", "--severity", "blocker", "--root", t)
+            self.assertEqual(json.loads((root / ".uat/fixqueue.json").read_text())[0]["state"], "proposed")
+            run("fixq.py", "approve", "C-1", "--root", t)
+            self.assertEqual(json.loads((root / ".uat/fixqueue.json").read_text())[0]["state"], "approved")
+
+    def test_dashboard_rejects_foreign_host_and_missing_token(self):
+        import urllib.request
+        import urllib.error
+        with tempfile.TemporaryDirectory() as t:
+            (Path(t) / ".uat").mkdir()
+            port = free_port_block(1)
+            srv = subprocess.Popen([PY, str(S / "dashboard.py"), "--root", t, "--port", str(port)], stdout=subprocess.DEVNULL)
+            try:
+                for _ in range(40):
+                    if not _free(port):
+                        break
+                    time.sleep(0.1)
+                ok = urllib.request.urlopen(f"http://127.0.0.1:{port}/api/state").read()
+                self.assertIn(b'"agents"', ok)
+                req = urllib.request.Request(f"http://127.0.0.1:{port}/api/state", headers={"Host": "evil.example"})
+                with self.assertRaises(urllib.error.HTTPError) as e:
+                    urllib.request.urlopen(req)
+                self.assertEqual(e.exception.code, 403)
+                post = urllib.request.Request(f"http://127.0.0.1:{port}/api/fix/approve", data=b"{}", method="POST")
+                with self.assertRaises(urllib.error.HTTPError) as e:
+                    urllib.request.urlopen(post)
+                self.assertEqual(e.exception.code, 403)
+            finally:
+                srv.terminate()

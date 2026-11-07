@@ -8,10 +8,13 @@ Read these first, in order:
 3. Finding schema: `$schema`
 
 ## Environment
-- System under test: `$base_url` (UAT copy of the code is at `$workspace`, read-only for you)
+- Target kind: **$kind**. System under test: `$base_url` (your own private copy; no other tester shares it). Its code is at `$workspace`, read-only for you.
 - Your agent dir (cwd, writable): `$agent_dir`
 - Free tools are on PATH via `$tools_path`; catalog: `$catalog`
 - Entry point: $entry
+
+## Live status (cheap, do it)
+The dashboard shows what you do. Run `$event step "<what you are probing>"` before each probe and `$event check <RULE_ID> pass|fail` after you tested a rule.
 
 ## Business rules to verify (your oracle)
 $rules

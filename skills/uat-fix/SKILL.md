@@ -6,10 +6,10 @@ disable-model-invocation: true
 
 # /uat-fix: fix, prove, regress
 
-`S=${UAT_HOME:-$HOME/Work/uat-swarm}`. Requires phase `reported` and `.uat/report/findings.json`. Follow `agent-orchestration` (routing, author never reviews own change, security-sensitive work stays with Claude) and the repo's `AGENTS.md`/`CLAUDE.md` (git flow, test command) first. Caveman chat; commits and PR text normal prose.
+`S=${UAT_HOME:-$HOME/Work/uat}`. Requires phase `reported` and `.uat/fixqueue.json`. **Only items in state `approved` are touched** (approved by the user in the dashboard or `fixq.py approve`); never approve on the user's behalf. Follow `agent-orchestration` (routing, author never reviews own change, security-sensitive work stays with Claude) and the repo's `AGENTS.md`/`CLAUDE.md` (git flow, test command) first. Caveman chat; commits and PR text normal prose.
 
 ## 1. Select and plan
-AskUserQuestion (one): which findings: all / blocker+major / pick ids. Group by `suspect.file` and `area` so one fix covers one root cause; check every caller of the code to change (root cause, not symptom). Show the fix plan (cluster -> owner -> branch) and get a yes.
+`python3 $S/scripts/fixq.py list --root .`. If nothing is approved, stop and point at the dashboard Fixes tab. Group the approved items by `suspect.file` and `area` so one fix covers one root cause; check every caller of the code to change (root cause, not symptom). Show the fix plan (cluster -> owner -> branch) and get a yes. For each item: `fixq.py set <cid> fixing --branch uat-fix/<cid>` and `uat_event.py emit F<n> fix_start family=<f> model=<m> charter=<cid> --root .` so the fix agent appears on the dashboard with its own pet.
 
 Routing (from `agent-orchestration`): auth, crypto, input/SQL handling, permissions, secrets, migrations -> Claude implements, Codex reviews. Bounded, clear-spec fixes -> Codex implements (`codex:rescue`), Claude reviews. Test-only or mechanical changes -> OpenCode (`opencode-bridge:rescue`). Delegate fails twice -> Claude takes it. Load `ponytail:ponytail` before writing code; `frontend-design` for UI fixes.
 
@@ -17,12 +17,12 @@ Routing (from `agent-orchestration`): auth, crypto, input/SQL handling, permissi
 1. `git worktree add .uat/fix/<cid> -b uat-fix/<cid>` from the repo's base branch (not the UAT workspace).
 2. Render the brief from `$S/resources/fix-brief-template.md` using the cluster's `findings.json` entry (goal, bug, acceptance, test command, regression dir). Never paste credentials into it.
 3. Owner implements in the worktree, small commits. Delegates run sandboxed, no push.
-4. **Prove**: `python3 $S/scripts/uat_env.py sync .uat/fix/<cid> --root .` (copies the fix over the UAT workspace and restarts), then `python3 $S/scripts/replay.py --root . --only <cid> --passing`. It must exit 0 (repro passes on every run). Then run the project's own test command in the worktree. Both must pass.
+4. **Prove**: `python3 $S/scripts/uat.py uat_env lane sync L1 .uat/fix/<cid> --root .` (puts the fix into lane L1 and restarts), then `python3 $S/scripts/uat.py replay --root . --only <cid> --passing --lane L1 --keep-code`. It must exit 0 (repro passes on every run; intermittent clusters use the stress run count). Then run the project's own test command in the worktree. Both must pass.
 5. **Review**: a different agent than the author reviews the diff (`codex` review mode or `opencode-bridge:review`, else `code-review`; `security-review` for security clusters). Claude triages every finding: fix, reject with reason, or ask the user. Reject out-of-scope changes.
-6. Failure after the review loop: at most 2 retries, then Claude takes it, then ask the user. Do not loop.
+6. Failure after the review loop: at most 2 retries, then Claude takes it, then `fixq.py set <cid> needs_human`. Do not loop. On success `fixq.py set <cid> proven` and `uat_event.py emit F<n> fix_done rc=0 ...`.
 
 ## 3. Full regression
-After all selected clusters are merged into one integration branch `uat-fix/all` (ask before creating): `uat_env.py sync` that tree, then `replay.py --root . --passing` over everything accepted (all pinned repros), then the project's full tests. Anything red goes back to step 2 for that cluster.
+After all selected clusters are merged into one integration branch `uat-fix/all` (ask before creating): `uat_env lane sync` that tree into each lane, then `uat.py replay --root . --passing --keep-code` over everything accepted (all pinned repros), then the project's full tests. Anything red goes back to step 2 for that cluster.
 
 ## 4. Close
 - `verify-and-stop` before saying done. Re-run `/uat-execute` only on the areas touched if the user wants a second pass (re-plan not needed).
