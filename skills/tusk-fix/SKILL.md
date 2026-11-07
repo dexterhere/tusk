@@ -1,6 +1,6 @@
 ---
 name: tusk-fix
-description: Stage 5 of Tusk. Turns the UAT report into fixes using the repo's agent-orchestration rules: one worktree per bug cluster, a different agent reviews, every fix is proven by its pinned repro plus the full regression run. Never pushes without approval.
+description: Stage 5 of Tusk. Turns the Tusk report into fixes using the repo's agent-orchestration rules: one worktree per bug cluster, a different agent reviews, every fix is proven by its pinned repro plus the full regression run. Never pushes without approval.
 disable-model-invocation: true
 ---
 
@@ -14,7 +14,7 @@ disable-model-invocation: true
 Routing (from `agent-orchestration`): auth, crypto, input/SQL handling, permissions, secrets, migrations -> Claude implements, Codex reviews. Bounded, clear-spec fixes -> Codex implements (`codex:rescue`), Claude reviews. Test-only or mechanical changes -> OpenCode (`opencode-bridge:rescue`). Delegate fails twice -> Claude takes it. Load `ponytail:ponytail` before writing code; `frontend-design` for UI fixes.
 
 ## 2. Per cluster (up to `max_parallel` clusters at once, one git worktree each)
-1. `git worktree add .tusk/fix/<cid> -b tusk-fix/<cid>` from the repo's base branch (not the UAT workspace).
+1. `git worktree add .tusk/fix/<cid> -b tusk-fix/<cid>` from the repo's base branch (not the Tusk workspace).
 2. `python3 $S/scripts/kb.py handoff <cid> --branch tusk-fix/<cid> --root .` writes `.tusk/fix/<cid>/BRIEF.md`: bug, acceptance, and a "Do not break" section from the knowledge graph. Give that file to the fix agent as is. Never paste credentials into it.
 3. Owner implements in the worktree, small commits. Delegates run sandboxed, no push.
 4. **Prove** (the pinned repro of every related issue from `kb.py impact` must also pass: run `replay --only <cid>` for each id under "Re-run these pinned repros"): `python3 $S/scripts/tusk.py tusk_env lane sync L1 .tusk/fix/<cid> --root .` (puts the fix into lane L1 and restarts), then `python3 $S/scripts/tusk.py replay --root . --only <cid> --passing --lane L1 --keep-code`. It must exit 0 (repro passes on every run; intermittent clusters use the stress run count). Then run the project's own test command in the worktree. Both must pass.

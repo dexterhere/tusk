@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Single entry point: run a toolkit script where the UAT env lives (local or SSH host).
+"""Single entry point: run a toolkit script where the Tusk env lives (local or SSH host).
 
   tusk.py <script> [args...] [--root D]       e.g.  tusk.py run_agent --id A1 --lane L1 ...   tusk.py tusk_env lanes up
 Scripts in HOST_SIDE execute on the host and `.tusk/` is mirrored back; the rest always run locally on the mirror.

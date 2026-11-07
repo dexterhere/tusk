@@ -71,7 +71,7 @@ def main():
 
     led = [__import__("json").loads(x) for x in (u / "ledger.jsonl").read_text().splitlines()] if (u / "ledger.jsonl").exists() else []
     levels = sorted({x.get("sandbox", "?") for x in led if not x.get("ping")})
-    L = [f"# UAT Report", "", f"**Health score:** {score}/100 | **Accepted:** {len(items)} | **Rejected/dropped:** {len(rej)}",
+    L = [f"# Tusk Report", "", f"**Health score:** {score}/100 | **Accepted:** {len(items)} | **Rejected/dropped:** {len(rej)}",
          f"**Sandbox:** {', '.join(levels) or 'n/a'} (bwrap = read-only system, empty home, own lane; network is open to the target by design)", ""]
     if delta:
         L += [f"**Since last run:** {len(delta['new'])} new, {len(delta['still_open'])} still open, {len(delta['fixed'])} fixed", ""]

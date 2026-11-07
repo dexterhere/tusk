@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""tusk: install, check and launch the Tusk UAT swarm.
+"""tusk: install, check and launch the Tusk agent swarm.
 
   tusk setup        guided: check this machine, link the skills, offer the dashboard
   tusk doctor       check requirements (exit 1 if something required is missing)
@@ -51,7 +51,7 @@ def doctor(quiet=False):
 
 
 def links():
-    return [(home() / ".tusk", ROOT)] + [(home() / ".claude" / "skills" / s.name, s) for s in sorted((ROOT / "skills").iterdir()) if s.is_dir()]
+    return [(home() / ".tusk", ROOT), (home() / ".local" / "bin" / "tusk", ROOT / "bin" / "tusk")] + [(home() / ".claude" / "skills" / s.name, s) for s in sorted((ROOT / "skills").iterdir()) if s.is_dir()]
 
 
 def legacy_cleanup():
@@ -65,6 +65,7 @@ def legacy_cleanup():
 
 def install():
     (home() / ".claude" / "skills").mkdir(parents=True, exist_ok=True)
+    (home() / ".local" / "bin").mkdir(parents=True, exist_ok=True)
     legacy_cleanup()
     for link, target in links():
         if link.is_symlink() or not link.exists():
@@ -75,6 +76,8 @@ def install():
             print(f"  linked {link} -> {target}")
         else:
             print(f"  SKIPPED {link}: a real file or folder is there; move it away and run again")
+    if str(home() / ".local" / "bin") not in os.environ.get("PATH", "").split(os.pathsep):
+        print("  Add ~/.local/bin to your PATH to use the `tusk` command.")
     print("Done. Restart Claude Code, then run /tusk-full inside the project you want to test.")
 
 

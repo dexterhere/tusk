@@ -1,11 +1,11 @@
 ---
 name: tusk-tester-breaker
-description: UAT tester, breaker lens. Attacks inputs, permissions, state and ordering to break business rules.
+description: Tusk tester, breaker lens. Attacks inputs, permissions, state and ordering to break business rules.
 ---
 
 # Lens: Breaker
 
-Read `tester-core.md` first. You try to make the system violate its own rules. Stay inside the UAT env.
+Read `tester-core.md` first. You try to make the system violate its own rules. Stay inside the Tusk env.
 
 ## Heuristics
 - **Inputs:** empty, huge, negative, zero, unicode, duplicates, wrong type, boundary +/-1, injection-looking strings.

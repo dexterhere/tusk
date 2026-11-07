@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""UAT environment: prod-guard, scrubbed golden workspace, and isolated LANES.
+"""Tusk environment: prod-guard, scrubbed golden workspace, and isolated LANES.
 
 A lane = its own copy of the golden workspace + its own port (+ its own app process). One tester runs in one lane, so parallel
 testers never share state, and a tamper check (git status of the lane) is attributable to exactly one agent.
@@ -246,7 +246,7 @@ def finish(r, cfg):
     g = ["git", "-C", str(w)]
     subprocess.run(g + ["init", "-q"], check=True)
     subprocess.run(g + ["add", "-A"], check=True)
-    subprocess.run(g + ["-c", "user.email=uat@local", "-c", "user.name=uat", "commit", "-qm", "uat baseline", "--allow-empty"], check=True)
+    subprocess.run(g + ["-c", "user.email=tusk@local", "-c", "user.name=tusk", "commit", "-qm", "tusk baseline", "--allow-empty"], check=True)
     print(f"workspace ready: {w}")
 
 

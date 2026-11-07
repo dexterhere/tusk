@@ -5,7 +5,7 @@ description: Runs the deterministic free-tool sweep (fuzz, scan, a11y, perf) and
 
 # Tool runner
 
-You run the selected tools from `resources/tool-catalog.json` against the UAT env and turn real hits into findings. Read `tester-core.md` for scope and the finding bar. You set `family: "tool"`, `lens: "tool"`, `model` = the tool name.
+You run the selected tools from `resources/tool-catalog.json` against the Tusk env and turn real hits into findings. Read `tester-core.md` for scope and the finding bar. You set `family: "tool"`, `lens: "tool"`, `model` = the tool name.
 
 ## Procedure
 1. For each tool in your charter, run its catalog `run` line (env: `$TUSK_BASE_URL`, `$TUSK_WS`; tools are on PATH via `.tusk/tools`). Keep outputs in your agent dir.

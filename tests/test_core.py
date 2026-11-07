@@ -51,7 +51,7 @@ def _free(port):
 
 
 def mkroot(tmp, over=None):
-    """A UAT project dir whose golden workspace holds the demo app; lanes run it on their own ports."""
+    """A Tusk project dir whose golden workspace holds the demo app; lanes run it on their own ports."""
     root = Path(tmp)
     (root / ".tusk").mkdir(exist_ok=True)
     port = free_port_block()
@@ -478,19 +478,19 @@ class SshMode(unittest.TestCase):
             shutil.rmtree(root / ".tusk/workspace")
             env = {**os.environ, "TUSK_SSH_CMD": str(shim)}
 
-            def uat(*a):
+            def tusk(*a):
                 return subprocess.run([PY, str(S / "tusk.py"), *a, "--root", str(root)], capture_output=True, text=True, env=env)
 
-            r = uat("tusk_env", "workspace")
+            r = tusk("tusk_env", "workspace")
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertTrue((remote / ".tusk/workspace/demo_app/app.py").exists())          # pushed, baseline made on the "host"
             self.assertTrue((remote / ".tusk/workspace/.git").exists())
             (root / ".tusk/agents/A1/findings").mkdir(parents=True)
-            r = uat("run_agent", "--id", "A1", "--lane", "L1", "--family", "codex", "--model", "m", "--cmd",
+            r = tusk("run_agent", "--id", "A1", "--lane", "L1", "--family", "codex", "--model", "m", "--cmd",
                     "touch findings/F-1.json")
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr + (root / ".tusk/events.host.jsonl").read_text()[-600:])
             self.assertTrue((root / ".tusk/ledger.jsonl").exists())                          # mirrored back
             self.assertTrue((root / ".tusk/agents/A1/findings/F-1.json").exists())
             self.assertTrue(any(root.glob(".tusk/events.host.jsonl")))                       # host events do not clobber local events.jsonl
             self.assertFalse((root / ".tusk/lanes").exists())                                # heavy trees are never mirrored
-            uat("tusk_env", "lanes", "down")
+            tusk("tusk_env", "lanes", "down")

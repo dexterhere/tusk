@@ -1,4 +1,4 @@
-"""Where the UAT environment runs: this machine, or any machine reachable over SSH (VPS, lab box, spare laptop).
+"""Where the Tusk environment runs: this machine, or any machine reachable over SSH (VPS, lab box, spare laptop).
 
 The orchestrator and dashboard always stay local. In ssh mode the workspace, app lanes, tools, tester CLIs and replay run on the
 host; `.tusk/` is mirrored back after every call so reports and the dashboard read local files. Needs only ssh + rsync + python3.

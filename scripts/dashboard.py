@@ -431,7 +431,7 @@ def main():
     with os.fdopen(fd, "w") as f:
         f.write(TOKEN)
     srv = ThreadingHTTPServer(("127.0.0.1", port), make_handler(r, port))
-    print(f"UAT dashboard (read-only except team proposals): http://127.0.0.1:{port}/  (Ctrl+C to stop)", flush=True)
+    print(f"Tusk dashboard (read-only except team proposals): http://127.0.0.1:{port}/  (Ctrl+C to stop)", flush=True)
     srv.serve_forever()
 
 

@@ -14,7 +14,7 @@ Work in: `$worktree` (branch `$branch`). Everything outside it is off limits. No
 ## Acceptance
 - `$acceptance`
 - Then the project's own test command must still pass: `$test_cmd`
-- Add a regression test in the project's own test suite if one exists for this area; the UAT repro stays in `$regression_dir`.
+- Add a regression test in the project's own test suite if one exists for this area; the Tusk repro stays in `$regression_dir`.
 
 ## Rules
 Follow the repo's AGENTS.md/CLAUDE.md. No secrets in files or logs. Small diff, root cause not symptom: check every caller of the code you change.

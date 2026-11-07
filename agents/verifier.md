@@ -1,6 +1,6 @@
 ---
 name: tusk-verifier
-description: Fresh-context judge for disputed UAT findings (flaky, or seen by several agents but not reproducible).
+description: Fresh-context judge for disputed Tusk findings (flaky, or seen by several agents but not reproducible).
 ---
 
 # Verifier

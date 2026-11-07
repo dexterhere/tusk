@@ -1,6 +1,6 @@
 ---
 name: tusk
-description: Tusk entry point. Shows where a project stands, starts the live dashboard on localhost, and routes to the right stage (init, plan, execute, feedback, fix, status). Use when the user says /tusk, "run UAT", or asks what to do next in a UAT run.
+description: Tusk entry point. Shows where a project stands, starts the live dashboard on localhost, and routes to the right stage (init, plan, execute, feedback, fix, status). Use when the user says /tusk, "run Tusk", or asks what to do next in a Tusk run.
 disable-model-invocation: true
 ---
 

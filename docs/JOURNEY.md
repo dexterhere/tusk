@@ -1,4 +1,4 @@
-# The UAT journey, end to end
+# The Tusk journey, end to end
 
 One loop, eight steps. The dashboard's **Journey** page shows where you are, who is doing what, and the next command. Everything below is recorded: assignments and decisions in the hash-chained audit log, findings with the agent and the model that actually answered, issue history in the knowledge graph.
 

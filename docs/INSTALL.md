@@ -1,6 +1,6 @@
 # Install and set up Tusk
 
-Tusk (the Tusk) runs from a plain checkout. There is nothing to compile and no Python package to install.
+Tusk runs from a plain checkout. There is nothing to compile and no Python package to install.
 
 ## 1. Requirements
 
@@ -29,12 +29,12 @@ git clone https://github.com/dexterhere/tusk.git ~/.local/share/tusk && ~/.local
 
 ## 3. What install does
 
-`tusk install` creates symlinks only: `~/.tusk` pointing at the checkout, and `~/.claude/skills/tusk*` pointing at its `skills/`. It never overwrites a real file or folder (it says SKIPPED) and `tusk uninstall` removes only links that point at this checkout. Restart Claude Code and type `/tusk` to confirm. To use another location, set `TUSK_HOME=/path` (skills default to `~/.tusk`).
+`tusk install` creates symlinks only: `~/.tusk` pointing at the checkout, `~/.local/bin/tusk` for the command, and `~/.claude/skills/tusk*` pointing at its `skills/`. It never overwrites a real file or folder (it says SKIPPED) and `tusk uninstall` removes only links that point at this checkout. Restart Claude Code and type `/tusk` to confirm. To use another location, set `TUSK_HOME=/path` (skills default to `~/.tusk`).
 
 ## 4. Check it works (no agent, no network)
 
 ```sh
-TUSK_STATE_DIR=$(mktemp -d) python3 -m unittest discover -s tests    # about 95 s, all green
+TUSK_STATE_DIR=$(mktemp -d) python3 -m unittest discover -s tests    # about 2 minutes, all green
 python3 scripts/harness.py list                                      # which agent programs are installed
 ```
 
@@ -81,9 +81,22 @@ Put overrides in `<project>/.tusk/tusk.json` (they merge over `tusk.defaults.jso
 | A model "did not answer the test question" | Pick another model; presets other than claude, codex and opencode are unverified |
 | "out of quota" | Wait for the reset or add another model to the team |
 | Audit log "cannot be proven complete" | Normal after wiping `.tusk/` on purpose: `python3 scripts/audit.py reset` |
-| Slash commands missing | Re-run the symlink loop, restart Claude Code |
+| Slash commands missing | Run `tusk install`, then restart Claude Code |
+| `tusk: command not found` | `tusk install` links it into `~/.local/bin`; add that folder to your `PATH` |
 | Tab icon looks old | Hard-refresh (Ctrl+Shift+R) after restarting the dashboard |
 
-## 9. Uninstall
+## 9. Upgrading from the old `uat` names
+
+Earlier builds called everything `uat`. After `tusk update` (or a fresh install) rename by hand what lives outside the checkout:
+
+```sh
+mv <project>/.uat <project>/.tusk                      # per project; and in .gitignore / .git/info/exclude
+mv <project>/.tusk/uat.json <project>/.tusk/tusk.json  # if you had overrides
+mkdir -p ~/.local/state/tusk && cp -n ~/.local/state/uat/* ~/.local/state/tusk/   # audit anchors
+```
+
+`tusk install` removes the old `uat*` command links itself. Environment variables `UAT_*` are now `TUSK_*`.
+
+## 10. Uninstall
 
 Run `tusk uninstall`, delete the checkout, and delete `.tusk/` inside each project. Audit anchors live in `~/.local/state/tusk/`.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capabilities of the machine that will run the UAT env (run it locally or over SSH). Prints JSON.
+"""Capabilities of the machine that will run the Tusk env (run it locally or over SSH). Prints JSON.
 Feeds /tusk-init preflight and the recommended swarm size.   hostinfo.py"""
 import json
 import os

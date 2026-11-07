@@ -1,6 +1,6 @@
 ---
 name: tusk-full
-description: Complete UAT run managed end to end by the orchestrator (init, plan, execute, feedback, verify, then fix and re-test once you approve). On first use it asks how to shape the team - one orchestrator plus at least one worker agent, same LLM or different. Use when the user says /tusk-full, "run full UAT", or wants the whole cycle handled. Subcommands - reconfigure, apply.
+description: Complete Tusk run managed end to end by the orchestrator (init, plan, execute, feedback, verify, then fix and re-test once you approve). On first use it asks how to shape the team - one orchestrator plus at least one worker agent, same LLM or different. Use when the user says /tusk-full, "run full Tusk", or wants the whole cycle handled. Subcommands - reconfigure, apply.
 disable-model-invocation: true
 ---
 

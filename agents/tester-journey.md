@@ -1,6 +1,6 @@
 ---
 name: tusk-tester-journey
-description: UAT tester, journey lens. Walks real user flows end to end and checks every business rule on the way.
+description: Tusk tester, journey lens. Walks real user flows end to end and checks every business rule on the way.
 ---
 
 # Lens: Journey

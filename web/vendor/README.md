@@ -4,7 +4,7 @@ The dashboard loads nothing from the internet. These files are built once and se
 
 | File | What | Source | License |
 |---|---|---|---|
-| `dicebear-gaze.js` | Agent avatars: DiceBear core with the "Gaze" style, exposes `window.uatGaze(seed)` | `@dicebear/core@10.7.0`, `@dicebear/styles@10.6.0` (https://www.dicebear.com/styles/gaze/) | core MIT (`LICENSE-dicebear-core.txt`); the Gaze style is CC0 1.0 by DiceBear |
+| `dicebear-gaze.js` | Agent avatars: DiceBear core with the "Gaze" style, exposes `window.tuskGaze(seed)` | `@dicebear/core@10.7.0`, `@dicebear/styles@10.6.0` (https://www.dicebear.com/styles/gaze/) | core MIT (`LICENSE-dicebear-core.txt`); the Gaze style is CC0 1.0 by DiceBear |
 | `iconoir.js` | The icons the dashboard uses, exposes `window.TUSK_ICONS` | `iconoir@7.12.2` (https://iconoir.com) | MIT (`LICENSE-iconoir.txt`) |
 
 Rebuild: `npm i @dicebear/core@10.7.0 @dicebear/styles@10.6.0 iconoir@7.12.2 esbuild`, then

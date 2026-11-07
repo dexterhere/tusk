@@ -1,4 +1,4 @@
-"""Tiny shop API with 5 seeded business-logic bugs, for calibrating UAT testers. Stdlib only.
+"""Tiny shop API with 5 seeded business-logic bugs, for calibrating Tusk testers. Stdlib only.
 
   python3 app.py PORT
 Rules (the oracle) are in rules.json; the bugs are listed in seeded_bugs.json.

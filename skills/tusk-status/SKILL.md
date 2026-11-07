@@ -1,6 +1,6 @@
 ---
 name: tusk-status
-description: Tusk housekeeping. Shows phase, env health, agents, rounds, token/time ledger and disk use; resumes an interrupted run; tears the UAT env down. Use any time after /tusk-init, or with "down" to clean up.
+description: Tusk housekeeping. Shows phase, env health, agents, rounds, token/time ledger and disk use; resumes an interrupted run; tears the Tusk env down. Use any time after /tusk-init, or with "down" to clean up.
 disable-model-invocation: true
 ---
 
@@ -20,7 +20,7 @@ Print a short table and the recommended next command for the current phase (init
 Read phase. If `executing`: report which charters have an `agents/<id>/findings` dir and which are missing, re-run `tusk_env.py status`/`up`, then continue `/tusk-execute` from the first charter without findings. Do not redo finished agents.
 
 ## down
-Stop all lanes (`tusk.py tusk_env lanes down --root .`) and the dashboard (`pkill -f scripts/dashboard.py`) and any tool containers started for UAT (`docker ps` filtered by the images in the catalog; ask before stopping anything you did not start). Keep reports and regression repros.
+Stop all lanes (`tusk.py tusk_env lanes down --root .`) and the dashboard (`pkill -f "python3 .*scripts/[d]ashboard.py"`) and any tool containers started for Tusk (`docker ps` filtered by the images in the catalog; ask before stopping anything you did not start). Keep reports and regression repros.
 
 ## clean
 Ask first (AskUserQuestion). On yes: `down`, then delete `.tusk/workspace`, `.tusk/lanes`, `.tusk/logs`, `.tusk/fix`. Keep `.tusk/kb` (the knowledge graph is the memory between runs), `.tusk/report`, `.tusk/regression`, `.tusk/fixqueue.json`, `.tusk/tusk.json`, `.tusk/baseline.json`. Remove `.tusk/tools` only if the user asks (reinstall costs time and disk).

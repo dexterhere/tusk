@@ -1,21 +1,21 @@
 ---
 name: tusk-init
-description: Stage 1 of Tusk. Asks WHERE to run (this computer, or a remote host over SSH), scans the repo, recommends swarm size and free tools, then builds a scrubbed UAT environment with isolated lanes under .tusk/. Use before /tusk-plan.
+description: Stage 1 of Tusk. Asks WHERE to run (this computer, or a remote host over SSH), scans the repo, recommends swarm size and free tools, then builds a scrubbed Tusk environment with isolated lanes under .tusk/. Use before /tusk-plan.
 disable-model-invocation: true
 ---
 
-# /tusk-init: size the swarm, ask, build the UAT environment
+# /tusk-init: size the swarm, ask, build the Tusk environment
 
 `S=${TUSK_HOME:-$HOME/.tusk}`. All state lives in `<repo>/.tusk/`. Chat in caveman style; files you write stay normal prose.
 You are the Elephant: you hold context and decide. Testers are blind. Test-only: you never change the user's source here.
 
-## 0. Where does UAT run? (ask first, AskUserQuestion)
+## 0. Where does Tusk run? (ask first, AskUserQuestion)
 - **This computer**: app, lanes, tools and tester CLIs run here. `target.mode = "local"`.
 - **Remote host over SSH** (a VPS, lab box, any machine you can `ssh` into): the workspace, app lanes, tools, tester CLIs and replay run THERE; this computer keeps the orchestrator, dashboard and reports and mirrors `.tusk/` back. `target.mode = "ssh"`. Ask for the ssh destination (offer `Host` names from `~/.ssh/config`; key auth only, no password prompts), and a run dir (default `~/tusk-runs/<project>`). Then `ssh -o BatchMode=yes <host> true`; on failure stop and show the error.
 Write `target` into `.tusk/tusk.json`. From here every host-side script is called as `python3 $S/scripts/tusk.py <script> ... --root .`, which does the right thing for both modes.
 
 ## 1. Preflight (stop and report on failure; never block silently)
-- `python3 $S/scripts/tusk.py hostinfo --root .` prints the capabilities of the machine that runs UAT (local or the ssh host): python, git, rsync, **bwrap**, docker, `claude`/`codex`/`opencode`, cpus, free RAM and disk, `recommended_parallel`.
+- `python3 $S/scripts/tusk.py hostinfo --root .` prints the capabilities of the machine that runs Tusk (local or the ssh host): python, git, rsync, **bwrap**, docker, `claude`/`codex`/`opencode`, cpus, free RAM and disk, `recommended_parallel`.
 - **bubblewrap is required** (sandbox for agent-written commands). If missing, tell the user to install it (`pacman -S bubblewrap` / `apt install bubblewrap`). Only if they refuse, set `sandbox.require=false` and say plainly that tester commands then run unconfined; the report will record it.
 - Agent CLIs missing on the host = that family is dropped, tell the user. On an ssh host each CLI must be logged in there too (`ssh host claude --version` etc.).
 - `jg doctor` locally (retrieval); fall back to Grep/Glob and say so.
