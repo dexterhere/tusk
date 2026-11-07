@@ -13,6 +13,9 @@ disable-model-invocation: true
 - Read `.uat/uat.json` (`swarm`, `models`, `stop`) and `.uat/plan/plan.json`. Pending charters by priority.
 - Phase `executing`; keep `round`, `spent_agents`, `started` in `state.json`. Emit progress for the dashboard: `python3 $S/scripts/uat_event.py emit orchestrator phase text="wave 1: 3 agents" --root .`
 
+## 0b. Re-test earlier fixes first (the loop closes here)
+If `.uat/kb/graph.json` lists issues in status `fixed` or `verified` (`python3 $S/scripts/kb.py retest`), replay their pinned repros against the current code before any new wave: `python3 $S/scripts/kb.py retest --run --root .`. Passed -> `verified`. Failed -> `regressed`, back in the fix queue as `proposed`. Tell the user which. `make_brief.py` also adds a "previously fixed, re-verify these first" list (behaviour only, no code locations) to briefs for the same area, so testers check fixed behaviour again with fresh eyes.
+
 ## 1. Assign agents and lanes
 Agent ids `A1..An`. Agent `i`: family = `families[i % 3]` (only working ones), next pending charter whose lens fits, rotating lenses so each family gets each lens over time. Models come from `models.<family>.cheap` (list = fallback order). Never exceed `swarm.max_agents`.
 **One agent = one lane.** A wave has at most `swarm.max_parallel` agents; agent k of the wave gets lane `L<k>`. Lanes are reset to baseline (code and data) by `run_agent.py` itself before each agent, so no tester ever sees another's state.

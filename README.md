@@ -30,7 +30,19 @@ Swarm size is bounded by the machine that runs the tests (`scripts/hostinfo.py`)
 
 ## Live dashboard
 
-`python3 scripts/dashboard.py --root .` then open the URL it prints (the `#token` part is the approval token and is never served over HTTP).
+`python3 scripts/dashboard.py --root .` then open the URL it prints. The page is read-only: it has no write endpoints at all, so nothing can be approved or changed from it. It has a collapsible sidebar, light/dark theme and Figtree, and pages for Overview, Agents, Tests, Findings, Fix cycle, Audit log, Report and the Knowledge graph.
+
+## Knowledge base and the fix cycle
+
+`.uat/kb/` (set `kb.dir` to move it inside the project, e.g. to commit it) holds `graph.json` (a few KB) and `DIGEST.md` (60 lines, for an agent to read first). Nodes: issues, files, rules, areas, pinned repro tests, fixes. Links: issue in file, issue violates rule, test guards issue, fix resolves issue, fix touches file, and `suspected_cause` when a new issue shows up in code an earlier fix touched.
+
+```
+find (execute) -> report + kb ingest -> you approve in chat -> kb impact (what else lives in this code)
+  -> kb handoff (fix brief incl. Do-not-break list) -> fix + prove + related repros -> kb fixed
+  -> next /uat-execute: kb retest --run -> verified | regressed (back in the queue)
+```
+
+Issue status: open, approved, fixing, fixed (proven, waiting), verified (passed again in a later run), regressed, wontfix, not_seen. In ssh mode the graph lives on the orchestrating computer and is never overwritten by the host mirror; testers on the host only see the behaviour-only re-verify list in their brief. Testers stay blind to code: `kb.py link` (done in `/uat-feedback`) and `kb.py fixed` add the code locations.
 Four tabs: **Live** (each agent as a pet with a label popup, who orchestrates, what each is doing now, rules under test), **Graph** (orchestrator, agents, charters,
 rules, findings sized by severity), **Findings** (severity bars, new clusters per round, cluster table), **Fixes** (queue with Approve / Reject).
 

@@ -12,7 +12,8 @@ disable-model-invocation: true
 1. `cat .uat/state.json`; `python3 $S/scripts/uat.py uat_env lanes status --root .`
 2. Ledger: `jq -s 'group_by(.family+" "+.model)|map({who:.[0].family+" "+.[0].model,runs:length,secs:(map(.secs)|add),findings:(map(.findings)|add),fails:(map(select(.rc!=0))|length),tamper:(map(select(.tamper))|length)})' .uat/ledger.jsonl`
 3. Rounds: `.uat/rounds.jsonl` last 5 lines. Clusters: counts by verdict from `.uat/clusters.json`.
-4. Disk: `du -sh .uat .uat/tools .uat/agents`; also `docker system df` if docker tools were used.
+4. Knowledge: `python3 $S/scripts/kb.py digest --root .` (issues by status, hot files, what to re-verify).
+5. Disk: `du -sh .uat .uat/tools .uat/agents`; also `docker system df` if docker tools were used.
 Print a short table and the recommended next command for the current phase (init -> plan -> execute -> feedback -> fix).
 
 ## resume
@@ -22,4 +23,4 @@ Read phase. If `executing`: report which charters have an `agents/<id>/findings`
 Stop all lanes (`uat.py uat_env lanes down --root .`) and the dashboard (`pkill -f scripts/dashboard.py`) and any tool containers started for UAT (`docker ps` filtered by the images in the catalog; ask before stopping anything you did not start). Keep reports and regression repros.
 
 ## clean
-Ask first (AskUserQuestion). On yes: `down`, then delete `.uat/workspace`, `.uat/lanes`, `.uat/logs`, `.uat/fix`. Keep `.uat/report`, `.uat/regression`, `.uat/fixqueue.json`, `.uat/uat.json`, `.uat/baseline.json`. Remove `.uat/tools` only if the user asks (reinstall costs time and disk).
+Ask first (AskUserQuestion). On yes: `down`, then delete `.uat/workspace`, `.uat/lanes`, `.uat/logs`, `.uat/fix`. Keep `.uat/kb` (the knowledge graph is the memory between runs), `.uat/report`, `.uat/regression`, `.uat/fixqueue.json`, `.uat/uat.json`, `.uat/baseline.json`. Remove `.uat/tools` only if the user asks (reinstall costs time and disk).

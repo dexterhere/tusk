@@ -25,10 +25,10 @@ If mutation tools are installed and the user wants it: run mutmut / stryker / ca
 
 ## 4. Build the report
 `python3 $S/scripts/report.py --root . --save-baseline`
-Also runs `fixq.py sync`: every accepted result (defect or suboptimal) enters `.uat/fixqueue.json` as `proposed`. Produces `.uat/report/report.md` (human), `findings.json` (machine, one entry per cluster with expected/actual, repro, evidence, suspect location, confidence, acceptance command), `junit.xml` (CI), and pins each repro under `.uat/regression/<cid>/`. The baseline file lets the next run say new / still-open / fixed.
+Also runs `fixq.py sync` and `kb.py ingest` (merges the run into the knowledge graph `.uat/kb/`): every accepted result (defect or suboptimal) enters `.uat/fixqueue.json` as `proposed`. Produces `.uat/report/report.md` (human), `findings.json` (machine, one entry per cluster with expected/actual, repro, evidence, suspect location, confidence, acceptance command), `junit.xml` (CI), and pins each repro under `.uat/regression/<cid>/`. The baseline file lets the next run say new / still-open / fixed.
 
 ## 5. Add suspect locations the testers missed
-For accepted clusters with no `suspect`, use `jg "where is <rule/behaviour> implemented" .` and the graphify graph to propose `file:line`. Write it into that cluster's `findings.json` entry (`suspect`). Mark it `"suspect_source":"elephant"` so fix agents know it is a lead. Max 10 clusters; stop at the first plausible location each.
+For accepted clusters with no `suspect`, use `jg "where is <rule/behaviour> implemented" .` and the graphify graph to propose `file:line`. Write it into that cluster's `findings.json` entry (`suspect`). Mark it `"suspect_source":"elephant"` so fix agents know it is a lead. Max 10 clusters; stop at the first plausible location each. Then tell the graph: `python3 $S/scripts/kb.py link <cid> --files <path>...`. Testers are blind to code, so this link is what lets `kb.py impact` find other issues in the same code. Run `kb.py digest` and show the user its Open and Re-verify sections.
 
 ## 6. Present
-Show the user: health score, counts by severity, top 5 findings (title, severity, confidence), rejected/dropped count, and the report path. Point the user at the dashboard Fixes tab (or `fixq.py list`) to approve what may be fixed, then `/uat-fix`. Set phase `reported`.
+Show the user: health score, counts by severity, top 5 findings (title, severity, confidence), rejected/dropped count, and the report path. The dashboard is read-only. Ask the user in chat which proposed fixes may start (list them with severity and `kb.py impact --cid <cid>` risk); on a yes run `fixq.py approve <cid>...` yourself and record who said so. Then `/uat-fix`. Set phase `reported`.
