@@ -274,7 +274,7 @@ class Hardening(unittest.TestCase):
             run("fixq.py", "approve", "C-1", "--root", t)
             self.assertEqual(json.loads((root / ".uat/fixqueue.json").read_text())[0]["state"], "approved")
 
-    def test_dashboard_rejects_foreign_host_and_missing_token(self):
+    def test_dashboard_is_read_only_and_rejects_foreign_host(self):
         import urllib.request
         import urllib.error
         with tempfile.TemporaryDirectory() as t:
@@ -290,7 +290,7 @@ class Hardening(unittest.TestCase):
                 self.assertIn(b'"agents"', ok)
                 page = urllib.request.urlopen(f"http://127.0.0.1:{port}/")
                 html = page.read().decode()
-                self.assertNotIn("TOKEN=\"", html)                                  # the approval token is never served
+                self.assertNotIn("TOKEN", html)                                     # no write side, so no token at all
                 self.assertIn("script-src 'nonce-", page.headers["Content-Security-Policy"])
                 self.assertEqual(page.headers["X-Frame-Options"], "DENY")
                 req = urllib.request.Request(f"http://127.0.0.1:{port}/api/state", headers={"Host": "evil.example"})
@@ -300,7 +300,7 @@ class Hardening(unittest.TestCase):
                 post = urllib.request.Request(f"http://127.0.0.1:{port}/api/fix/approve", data=b"{}", method="POST")
                 with self.assertRaises(urllib.error.HTTPError) as e:
                     urllib.request.urlopen(post)
-                self.assertEqual(e.exception.code, 403)
+                self.assertEqual(e.exception.code, 501)                             # no POST handler: nothing can be approved from the page
             finally:
                 srv.terminate()
 

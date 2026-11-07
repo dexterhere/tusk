@@ -3,7 +3,7 @@
 
   dashboard.py [--root D] [--port 7777]      then open http://127.0.0.1:7777
 Read side: polls files under .uat/ (in ssh mode a thread mirrors them from the host every 3 s).
-Write side: only the fix queue (approve / reject), guarded by a per-run token and a Host/Origin check.
+Read-only: the dashboard has no write endpoints. Approvals happen in the chat (/uat-fix) or with fixq.py, never from this page.
 """
 import argparse
 import json
@@ -17,6 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import fixq  # noqa: E402
+import kb  # noqa: E402
 import host  # noqa: E402
 import re  # noqa: E402
 from uatlib import HOME, SEV, agent_meta, audit_read, audit_verify, clean, config, coverage, is_remote, jload, read_events, safe_read, udir  # noqa: E402
@@ -95,8 +96,12 @@ def snapshot(r):
     summary = {"agents": {"total": len(agents), "running": running, "done": sum(1 for a in agents.values() if a["status"] == "done"), "failed": sum(1 for a in agents.values() if a["status"] in ("failed", "tamper"))},
                "tests": {"rules": len(cov), **{k: sum(1 for c in cov if c["status"] == k) for k in ("passed", "violated", "failed-unconfirmed", "untested")}},
                "findings": {s: sum(1 for c in accepted if c.get("severity") == s) for s in SEV}, "elapsed_s": round(time.time() - first) if events else 0}
+    g = kb.load(r)
+    kbs = {"runs": g["runs"], "nodes": len(g["nodes"]), "edges": len(g["edges"]), "status": {}}
+    for v in kb.issues(g).values():
+        kbs["status"][v.get("status", "open")] = kbs["status"].get(v.get("status", "open"), 0) + 1
     return {
-        "next": nxt, "summary": summary, "replays": replays, "tests": cov, "audit": {"ok": ok, "count": n_audit, "head": head[:16], "bad_seq": bad},
+        "kb": kbs, "next": nxt, "summary": summary, "replays": replays, "tests": cov, "audit": {"ok": ok, "count": n_audit, "head": head[:16], "bad_seq": bad},
         "lanes": sorted({a.get("lane") for a in agents.values() if a.get("lane")}), "files": [f for f in ("report.md", "findings.json", "junit.xml") if (u / "report" / f).exists()],
         "now": time.time(), "project": clean(r.name, 60), "state": {"phase": clean(jload(u / "state.json", {}).get("phase", ""), 30)},
         "orchestrator": {"name": clean(orch.get("name", "Orchestrator"), 40), "model": clean(orch.get("model", "claude"), 60)},
@@ -106,7 +111,7 @@ def snapshot(r):
         "charters": [{"id": clean(c.get("id"), 40), "area": clean(c.get("area"), 60), "lens": clean(c.get("lens"), 20), "rule_ids": [clean(x, 40) for x in c.get("rule_ids", [])[:20]]} for c in plan.get("charters", [])[:200]],
         "clusters": [{**{k: clean(c.get(k, ""), 160) for k in ("cid", "title", "area", "rule_id", "replay", "verdict", "category", "kind")}, "severity": c["severity"] if c.get("severity") in SEV else "nit",
                       "agents": [clean(x, 40) for x in c.get("agents", [])[:20]], "merge_reasons": [clean(x, 40) for x in c.get("merge_reasons", [])], "fail_rate": num(c.get("fail_rate"))} for c in clusters[:500]],
-        "fixqueue": [{**{k: clean(i.get(k, ""), 160) for k in ("cid", "title", "area", "kind", "state", "branch")}, "severity": i["severity"] if i.get("severity") in SEV else "nit"} for i in fixq.load(r)[:500]],
+        "fixqueue": [{**{k: clean(i.get(k, ""), 160) for k in ("cid", "title", "area", "kind", "state", "branch")}, "severity": i["severity"] if i.get("severity") in SEV else "nit", "life": clean(g["nodes"].get("i:" + str(i.get("cid")), {}).get("status", ""), 20)} for i in fixq.load(r)[:500]],
         "rounds": [{"round": int(num(x.get("round"))), "new_clusters": int(num(x.get("new_clusters")))} for x in rounds[-30:]], "events": [{k: (clean(v, 160) if isinstance(v, str) else num(v) if k == "ts" else "") for k, v in e.items() if k in ("ts", "actor", "type", "text", "now", "rule", "result", "status", "state")} for e in events[-80:]],
         "report": (u / "report" / "report.md").exists(), "score": num((jload(u / "report" / "findings.json", {}) or {}).get("health_score"), None),
     }
@@ -138,21 +143,19 @@ def cluster_detail(r, cid):
         rp = jload(udir(r) / "replays" / agent / f"{stem}.replay.json", {}) or {}
         members.append({"agent": clean(agent, 40), "id": clean(o.get("id"), 60), "title": clean(o.get("title"), 160), "severity": o.get("severity") if o.get("severity") in SEV else "nit",
                         "expected": clean(o.get("expected"), 600), "actual": clean(o.get("actual"), 600), "evidence": clean(o.get("evidence"), 600),
-                        "repro_kind": clean(o.get("repro", {}).get("kind"), 20), "repro_cmd": str(o.get("repro", {}).get("cmd", ""))[:2000], "suspect": clean(json.dumps(o.get("suspect", "")), 200),
+                        "repro_kind": clean(o.get("repro", {}).get("kind"), 20), "repro_cmd": str(o.get("repro", {}).get("cmd", ""))[:2000], "suspect": clean(json.dumps(o["suspect"]), 200) if o.get("suspect") else "",
                         "replay": {"status": clean(rp.get("status", "none"), 20), "fail_rate": num(rp.get("fail_rate")), "touches_target": bool(rp.get("touches_target")),
                                    "runs": [{"rc": x.get("rc") if isinstance(x.get("rc"), int) else None, "secs": num(x.get("secs")), "tail": clean(x.get("tail", ""), 300)} for x in rp.get("runs", [])[:50]]}})
     v = (jload(udir(r) / "verdicts.json", {}) or {}).get(cid, {})
     return {"cid": cid, "title": clean(c.get("title"), 160), "severity": c.get("severity") if c.get("severity") in SEV else "nit", "area": clean(c.get("area"), 80), "rule_id": clean(c.get("rule_id"), 40),
             "verdict": clean(c.get("verdict"), 20), "replay": clean(c.get("replay"), 20), "merge_reasons": [clean(x, 40) for x in c.get("merge_reasons", [])], "agents": [clean(x, 40) for x in c.get("agents", [])],
-            "families": [clean(x, 30) for x in c.get("families", [])], "members": members, "verifier": {"verdict": clean(v.get("verdict"), 10), "note": clean(v.get("note"), 300), "by": clean(v.get("by"), 40)}}
+            "families": [clean(x, 30) for x in c.get("families", [])], "members": members, "impact": kb.impact(r, cid), "kb_status": clean((kb.load(r)["nodes"].get(f"i:{cid}") or {}).get("status") or "", 20), "verifier": {"verdict": clean(v.get("verdict") or "", 10), "note": clean(v.get("note") or "", 300), "by": clean(v.get("by") or "", 40)}}
 
 
 def audit_view(r, q="", limit=500):
     rows = audit_read(r)
     out = [{"seq": x.get("seq"), "ts": x.get("ts"), "actor": clean(x.get("actor"), 60), "type": clean(x.get("type"), 40), "data": clean(json.dumps(x.get("data", {}), sort_keys=True), 400), "hash": str(x.get("hash", ""))[:12], "source": "local"}
            for x in rows if isinstance(x, dict) and not x.get("broken")]
-    for e in read_events(r):                       # host-side records of an ssh run: shown, but outside the verified chain
-        pass
     ql = q.lower()
     out = [x for x in out if not ql or ql in (x["actor"] + " " + x["type"] + " " + x["data"]).lower()]
     return out[-limit:][::-1]
@@ -161,7 +164,7 @@ def audit_view(r, q="", limit=500):
 DOWNLOADS = {"report.md": ("report", "text/plain; charset=utf-8"), "findings.json": ("report", "application/json"), "junit.xml": ("report", "application/xml")}
 
 
-def make_handler(r, token, port):
+def make_handler(r, port):
     class H(BaseHTTPRequestHandler):
         def log_message(self, *a):
             pass
@@ -199,6 +202,8 @@ def make_handler(r, token, port):
             if m:
                 d = cluster_detail(r, m.group(1))
                 return self._send(200 if d else 404, json.dumps(d or {"error": "unknown cluster"}))
+            if u.path == "/api/kb":
+                return self._send(200, json.dumps(kb.view(r)))
             if u.path == "/fonts/Figtree.ttf":                 # self-hosted (SIL OFL): the page makes no outside requests
                 return self._send(200, (WEB.parent / "fonts" / "Figtree.ttf").read_bytes(), "font/ttf")
             if u.path == "/api/audit":
@@ -216,21 +221,6 @@ def make_handler(r, token, port):
             if self.path in ("/", "/index.html"):
                 return self._send(200, WEB.read_text().replace("__NONCE__", self.nonce), "text/html; charset=utf-8")
             self._send(404, "not found")
-
-        def do_POST(self):
-            origin = self.headers.get("Origin", "")
-            if not self._host_ok() or (origin and origin not in (f"http://127.0.0.1:{port}", f"http://localhost:{port}")) or self.headers.get("X-UAT-Token") != token:
-                return self._send(403, "forbidden")
-            body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0)) or 0) or b"{}")
-            valid = {i["cid"] for i in fixq.load(r)}
-            ids = [i for i in body.get("ids", []) if i in valid]
-            if self.path == "/api/fix/approve":
-                done = fixq.approve(r, ids or None, body.get("severities") or None, by="user (dashboard)") if (ids or body.get("severities")) else []
-            elif self.path == "/api/fix/reject":
-                done = [fixq.set_state(r, c, "rejected", by="user (dashboard)")["cid"] for c in ids]
-            else:
-                return self._send(404, "not found")
-            self._send(200, json.dumps({"changed": done}))
 
     return H
 
@@ -252,10 +242,8 @@ def main():
                     pass
                 time.sleep(3)
         threading.Thread(target=mirror, daemon=True).start()
-    token = secrets.token_urlsafe(16)
-    srv = ThreadingHTTPServer(("127.0.0.1", port), make_handler(r, token, port))
-    # the approval token is never served by the web server: only whoever sees this terminal line (or the /uat skill output) has it
-    print(f"UAT dashboard: http://127.0.0.1:{port}/#{token}  (Ctrl+C to stop)", flush=True)
+    srv = ThreadingHTTPServer(("127.0.0.1", port), make_handler(r, port))
+    print(f"UAT dashboard (read-only): http://127.0.0.1:{port}/  (Ctrl+C to stop)", flush=True)
     srv.serve_forever()
 
 

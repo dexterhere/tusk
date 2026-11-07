@@ -7,11 +7,17 @@
  --claude:#d97757;--codex:#10a37f;--opencode:#3b82f6;--tool:#868e96;--fix:#8b5cf6;--blocker:#d92d20;--major:#f08c00;--minor:#2f9e44;--nit:#868e96}
 :root[data-theme=dark]{--bg:#111110;--panel:#1a1a18;--panel2:#161614;--ink:#ecebe6;--mut:#9a9a92;--line:#2b2b28;--acc:#6b9bff;--acc-ink:#0b0b0a;--ok:#4cc16a;--warn:#f3a33b;--bad:#ff6b5e;--info:#6ea8ff;--shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35)}
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]):not([data-theme=dark]){--bg:#111110;--panel:#1a1a18;--panel2:#161614;--ink:#ecebe6;--mut:#9a9a92;--line:#2b2b28;--acc:#6b9bff;--acc-ink:#0b0b0a;--ok:#4cc16a;--warn:#f3a33b;--bad:#ff6b5e;--info:#6ea8ff;--shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35)}}
-*{box-sizing:border-box}html,body{height:100%}body{margin:0;background:var(--bg);color:var(--ink);font:400 14px/1.5 Figtree,system-ui,-apple-system,"Segoe UI",sans-serif;display:grid;grid-template-columns:224px minmax(0,1fr);grid-template-rows:auto 1fr}
+*{box-sizing:border-box}html,body{height:100%}body{margin:0;background:var(--bg);color:var(--ink);font:400 14px/1.5 Figtree,system-ui,-apple-system,"Segoe UI",sans-serif;display:grid;grid-template-columns:224px minmax(0,1fr);grid-template-rows:auto 1fr;transition:grid-template-columns .15s}
+body.collapsed{grid-template-columns:64px minmax(0,1fr)}
+body.collapsed .lbl,body.collapsed .brand div,body.collapsed .nav .n,body.collapsed .foot{display:none}body.collapsed .nav{justify-content:center;padding:10px 0}body.collapsed .brand{flex-direction:column;gap:6px;padding:4px 0 10px}.brand svg{flex:none}body.collapsed #collapse{margin:0 auto}
+.ico{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:-3px}.ico.lg{width:20px;height:20px}
+.phead{display:flex;gap:12px;align-items:center;margin:0 0 18px}.phead .ib{width:38px;height:38px;border-radius:11px;background:color-mix(in srgb,var(--acc) 13%,var(--panel));color:var(--acc);display:grid;place-items:center}.phead h1{font-size:20px;margin:0;letter-spacing:-.01em}.phead p{margin:0;color:var(--mut);font-size:13px}
+.stage{display:flex;gap:3px}.stage i{width:22px;height:6px;border-radius:99px;background:var(--line)}.stage i.on{background:var(--ok)}.stage i.bad{background:var(--bad)}.stage i.cur{background:var(--acc)}
+.pipe{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px}.pipe .card{padding:12px}.pipe b{font-size:24px;display:block;line-height:1.1}
 button,input,select{font:inherit;color:inherit}:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:6px}
 a{color:var(--acc)}code,pre,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
-#side{grid-row:1/3;background:var(--panel);border-right:1px solid var(--line);padding:16px 12px;display:flex;flex-direction:column;gap:4px;position:sticky;top:0;height:100vh;overflow:auto}
-.brand{display:flex;gap:10px;align-items:center;padding:4px 8px 14px}.brand b{font-weight:700;font-size:16px;letter-spacing:-.01em}.brand small{display:block;color:var(--mut);font-size:11px;margin-top:-2px}
+#side{grid-row:1/3;overflow-x:hidden;background:var(--panel);border-right:1px solid var(--line);padding:16px 12px;display:flex;flex-direction:column;gap:4px;position:sticky;top:0;height:100vh;overflow:auto}
+.brand{display:flex;gap:10px;align-items:center;padding:4px 8px 14px}#collapse{margin-left:auto;border:0;background:none;color:var(--mut);cursor:pointer;padding:4px;border-radius:7px}#collapse:hover{background:var(--panel2);color:var(--ink)}.brand b{font-weight:700;font-size:16px;letter-spacing:-.01em}.brand small{display:block;color:var(--mut);font-size:11px;margin-top:-2px}
 .nav{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border:0;background:none;border-radius:9px;cursor:pointer;text-align:left;color:var(--mut);font-weight:500}
 .nav:hover{background:var(--panel2);color:var(--ink)}.nav[aria-current=page]{background:color-mix(in srgb,var(--acc) 14%,transparent);color:var(--ink);font-weight:600}
 .nav .n{margin-left:auto;font-size:11px;font-weight:600;padding:0 7px;border-radius:99px;background:var(--line);color:var(--ink)}.nav .n.hot{background:var(--bad);color:#fff}
@@ -24,7 +30,7 @@ a{color:var(--acc)}code,pre,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,
 .btn{display:inline-block;border:1px solid var(--line);background:var(--panel);padding:6px 13px;border-radius:9px;cursor:pointer;font-weight:600;text-decoration:none;color:var(--ink)}.btn:hover{border-color:var(--mut)}.btn.p{background:var(--acc);border-color:var(--acc);color:var(--acc-ink)}.btn.d{border-color:color-mix(in srgb,var(--bad) 50%,var(--line));color:var(--bad)}.btn:disabled{opacity:.4;cursor:default}.btn.sm{padding:3px 10px;font-size:12px}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--nit);display:inline-block;flex:none}.dot.running{background:var(--codex);animation:p 1.2s infinite}.dot.done{background:var(--ok)}.dot.failed,.dot.tamper{background:var(--bad)}.dot.live{background:var(--ok)}.dot.stale{background:var(--warn)}
 @keyframes p{50%{opacity:.35}}@media (prefers-reduced-motion:reduce){.dot.running{animation:none}}
-main{padding:20px 24px 60px;max-width:1360px;width:100%}
+main{padding:22px 28px 60px;width:100%}
 h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin:22px 0 10px;font-weight:700}h2:first-child{margin-top:0}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:var(--shadow)}
 .grid{display:grid;gap:12px}.g4{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}.g3{grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}.g2{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
@@ -45,9 +51,9 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px 12px
 .x{float:right}.kv{display:grid;grid-template-columns:90px 1fr;gap:4px 12px}.kv dt{color:var(--mut)}.kv dd{margin:0;word-break:break-word}
 #pop{position:fixed;pointer-events:none;z-index:40;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 13px;box-shadow:var(--shadow);max-width:320px;display:none;font-size:12px}#pop h4{margin:0 0 5px;font-size:13px}#pop dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:2px 10px}#pop dt{color:var(--mut)}#pop dd{margin:0}
 #toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:10px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50}#toast.on{opacity:1}
-#graph{width:100%;height:620px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}.legend{display:flex;gap:14px;flex-wrap:wrap;margin:0 0 10px;font-size:12px;color:var(--mut)}
+#graph{width:100%;height:calc(100vh - 290px);min-height:480px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}.legend{display:flex;gap:14px;flex-wrap:wrap;margin:0 0 10px;font-size:12px;color:var(--mut)}
 .lanes{display:flex;gap:8px;flex-wrap:wrap}.lane{padding:6px 11px;border-radius:9px;border:1px dashed var(--line);font-size:12px;color:var(--mut)}.lane.busy{border-style:solid;border-color:var(--codex);color:var(--ink)}
-@media(max-width:860px){body{grid-template-columns:minmax(0,1fr)}#side{grid-row:auto;flex-direction:row;height:auto;position:static;overflow-x:auto}#side .foot,.brand small,#side .sp{display:none}.nav .n{display:none}.nav{width:auto;white-space:nowrap}main{padding:16px}}
+@media(max-width:860px){body,body.collapsed{grid-template-columns:minmax(0,1fr)}body.collapsed .lbl{display:inline}#side{grid-row:auto;flex-direction:row;height:auto;position:static;overflow-x:auto}#side .foot,.brand small,#side .sp{display:none}.nav .n{display:none}.nav{width:auto;white-space:nowrap}main{padding:16px}}
 </style></head><body>
 <nav id="side" aria-label="Sections"></nav>
 <header id="top"></header>
@@ -55,19 +61,23 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px 12px
 <aside id="drawer" aria-label="Details" role="dialog"></aside>
 <div id="pop" role="tooltip"></div><div id="toast" role="status" aria-live="polite"></div>
 <script nonce="__NONCE__">
-const TOKEN=decodeURIComponent(location.hash.slice(1));history.replaceState(null,'',location.pathname);
 const $=s=>document.querySelector(s);
 const h=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const KPI_IC={'Agents running':'agents','Rules tested':'tests','Confirmed findings':'bug','Health score':'gauge','Fix queue':'cycle','Elapsed':'clock','Audit log':'audit','Knowledge graph':'graph'};
 const num=x=>Number.isFinite(Number(x))?Number(x):0;
 const FAM={claude:'var(--claude)',codex:'var(--codex)',opencode:'var(--opencode)',tool:'var(--tool)',fix:'var(--fix)'};
 const SEVC={blocker:'var(--blocker)',major:'var(--major)',minor:'var(--minor)',nit:'var(--nit)'};
 const PETS=['cat','dog','fox','panda','frog','rabbit','owl','penguin','bear','koala'];
 const hash=s=>[...String(s)].reduce((a,c)=>(a*31+c.charCodeAt(0))>>>0,7);
 const store={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
-const PAGES=[['overview','Overview'],['agents','Agents'],['tests','Tests'],['findings','Findings'],['fixes','Fixes'],['audit','Audit log'],['report','Report'],['graph','Graph']];
-let S=null,page=store.get('uat.page'),filters={sev:'all',q:'',st:'all',tq:'',aq:'',fx:'all'},sel=new Set(),lastOK=0,reportData=null,auditData=null;
+const PAGES=[['overview','Overview'],['agents','Agents'],['tests','Tests'],['findings','Findings'],['fixes','Fix cycle'],['audit','Audit log'],['report','Report'],['graph','Knowledge']];
+let S=null,page=store.get('uat.page'),filters={sev:'all',q:'',st:'all',tq:'',aq:'',fx:'all',gq:'',types:{issue:1,file:1,rule:1,area:0,test:1,fix:1,agent:0}},kbData=null,lastOK=0,reportData=null,auditData=null;
 if(!PAGES.some(p=>p[0]===page))page='overview';
+const PHEAD={overview:['Overview','Live state of this UAT run and what to do next'],agents:['Agents','Who is testing what, on which lane, with which model'],tests:['Tests','Which business rules were checked, by whom, and how each replay went'],findings:['Findings','Replay-confirmed problems, merged across agents'],fixes:['Fix cycle','Each issue from found to fixed to re-verified. Read-only: approvals happen in chat with /uat-fix'],audit:['Audit log','Tamper-evident record of every phase, replay, verdict and fix change'],report:['Report','What to hand to whoever fixes it'],graph:['Knowledge graph','Code, rules, issues, tests and fixes, and how they connect']};
+const EXTRA={bug:'<path d="M8 8a4 4 0 0 1 8 0v7a4 4 0 0 1-8 0zM4 13h4M16 13h4M5 7l3 2M19 7l-3 2M5 19l3-2M19 19l-3-2"/>',check:'<path d="m5 12 5 5 9-10"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',file:'<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/>',list:'<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>',dl:'<path d="M12 4v11m-4-4 4 4 4-4M5 20h14"/>',sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5 19 19M5 19l1.5-1.5M17.5 6.5 19 5"/>',moon:'<path d="M20 14A8 8 0 0 1 10 4a8 8 0 1 0 10 10z"/>',auto:'<circle cx="12" cy="12" r="9"/><path d="M12 3v18"/>',left:'<path d="m15 6-6 6 6 6"/>',right:'<path d="m9 6 6 6-6 6"/>',alert:'<path d="M12 4 3 20h18z"/><path d="M12 10v4M12 17h.01"/>',cycle:'<path d="M4 12a8 8 0 0 1 14-5l2 2M20 4v5h-5M20 12a8 8 0 0 1-14 5l-2-2M4 20v-5h5"/>',layers:'<path d="m12 3 9 5-9 5-9-5zM3 13l9 5 9-5"/>',cpu:'<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>',target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>',gauge:'<path d="M4 18a8 8 0 1 1 16 0M12 18l4-6"/>',db:'<ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3"/>',lock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',copy:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',play:'<path d="m7 5 12 7-12 7z"/>',info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/>'};
 const ICON={overview:'<path d="M3 12 12 4l9 8M5 10v10h14V10"/>',agents:'<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6M15 14.5c3 0 6 1.5 6 5.5"/>',tests:'<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/>',findings:'<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',fixes:'<path d="M14 6a4 4 0 0 0-5 5l-6 6 3 3 6-6a4 4 0 0 0 5-5l-3 3-2-2z"/>',audit:'<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/>',report:'<path d="M6 3h9l4 4v14H6zM14 3v5h5M9 13h6M9 17h6"/>',graph:'<circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="8" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M8 7l8 1M7.5 8.3 11 15.7M16.8 10 13 16"/>'};
+Object.assign(ICON,EXTRA);ICON.fixes=EXTRA.cycle;
+const ic=(n,c)=>`<svg class="ico ${c||''}" viewBox="0 0 24 24" aria-hidden="true">${ICON[n]||''}</svg>`;
 
 /* theme: auto follows the OS, light/dark override and persist */
 function applyTheme(t){const r=document.documentElement;if(t==='auto')r.removeAttribute('data-theme');else r.setAttribute('data-theme',t)}
@@ -96,14 +106,14 @@ const sevchip=s=>`<span class="sev ${h(s)}">${h(s)}</span>`,stchip=s=>`<span cla
 const empty=(t,d)=>`<div class="empty"><b>${h(t)}</b>${h(d||'')}</div>`;
 const EVT={agent_start:'started',agent_done:'finished',model_exhausted:'ran out of model quota',lane_reset:'reset a lane',replay:'replayed',clusters:'grouped findings',validate:'validated findings',report_built:'built the report',verdict:'gave a verdict',fix_state:'moved a fix',wave:'started a wave',phase:'update',step:'',check:'checked'};
 function evText(e){const base=EVT[e.type]??e.type;const x=e.text||e.now||(e.rule?e.rule+' '+(e.result||''):'')||e.status||e.state||'';return `${h(base)} ${h(x)}`.trim()}
-async function api(path,body){const r=await fetch(path,body?{method:'POST',headers:{'X-UAT-Token':TOKEN,'Content-Type':'application/json'},body:JSON.stringify(body)}:{});if(!r.ok)throw new Error(r.status);return r.json()}
+async function api(path){const r=await fetch(path);if(!r.ok)throw new Error(r.status);return r.json()}
 const petFor=id=>{const a=S.agents.find(x=>x.id===id);return a?apet(a,20):ORCH(20)};
 
 /* shell */
 function renderSide(){
   const q=S.fixqueue.filter(i=>i.state==='proposed').length,run=S.summary.agents.running;
   const badge={agents:run?[run,0]:null,fixes:q?[q,1]:null,findings:S.clusters.length?[S.clusters.length,0]:null,tests:S.summary.tests.rules?[S.summary.tests.rules,0]:null,audit:S.audit.count?[S.audit.count,0]:null};
-  $('#side').innerHTML=`<div class="brand">${ORCH(40)}<div><b>UAT Swarm</b><small>${h(S.project)}</small></div></div>`+PAGES.map(([k,l],i)=>`<button class="nav" data-p="${k}" ${k===page?'aria-current="page"':''} title="${l} (${i+1})"><svg viewBox="0 0 24 24" aria-hidden="true">${ICON[k]}</svg>${l}${badge[k]?`<span class="n ${badge[k][1]?'hot':''}">${badge[k][0]}</span>`:''}</button>`).join('')+`<div class="sp"></div><div class="foot">Keys 1-8 switch sections.<br>Esc closes details.</div>`;
+  $('#side').innerHTML=`<div class="brand">${ORCH(40)}<div><b>UAT Swarm</b><small>${h(S.project)}</small></div><button id="collapse" aria-label="Collapse sidebar" title="Collapse sidebar">${ic(document.body.classList.contains('collapsed')?'right':'left')}</button></div>`+PAGES.map(([k,l],i)=>`<button class="nav" data-p="${k}" ${k===page?'aria-current="page"':''} title="${l} (${i+1})"><svg viewBox="0 0 24 24" aria-hidden="true">${ICON[k]}</svg><span class="lbl">${l}</span>${badge[k]?`<span class="n ${badge[k][1]?'hot':''}">${badge[k][0]}</span>`:''}</button>`).join('')+`<div class="sp"></div><div class="foot">Keys 1-8 switch sections.<br>Esc closes details.</div>`;
 }
 const STAGE={initialized:0,planned:1,executing:2,executed:2,reported:3,fixed:4};
 function renderTop(){
@@ -111,8 +121,8 @@ function renderTop(){
   const steps=['Init','Plan','Execute','Feedback','Fix'].map((l,i)=>`<span class="step ${i<cur?'done':i===cur?'cur':''}">${l}</span>`).join('');
   const live=Date.now()/1000-lastOK<6;
   $('#top').innerHTML=`<div><h1>${h(S.project)}</h1><div class="sub">orchestrated by ${h(S.orchestrator.name)} · ${h(S.orchestrator.model)}</div></div><div class="steps" aria-label="Stage">${steps}</div><span style="flex:1"></span>
-  <span class="chip" title="Where the tests run">${h(S.target.mode==='ssh'?'host':'local')}: ${h(S.target.host)} · ${h(S.target.kind)}</span><span class="chip" title="Sandbox level used by agents">sandbox: ${h(S.sandbox.join(', ')||'none yet')}</span>
-  <span class="chip"><span class="dot ${live?'live':'stale'}"></span>${live?'live':'stale'}</span><button class="btn sm" id="th" aria-label="Change theme">${{auto:'Auto',light:'Light',dark:'Dark'}[theme]} theme</button>`;
+  <span class="chip" title="Where the tests run">${ic("cpu")} ${h(S.target.mode==='ssh'?'host':'local')}: ${h(S.target.host)} · ${h(S.target.kind)}</span><span class="chip" title="Sandbox level used by agents">${ic("lock")} sandbox: ${h(S.sandbox.join(', ')||'none yet')}</span>
+  <span class="chip"><span class="dot ${live?'live':'stale'}"></span>${live?'live':'stale'}</span><button class="btn sm" id="th" aria-label="Change theme">${ic({auto:'auto',light:'sun',dark:'moon'}[theme])} ${{auto:'Auto',light:'Light',dark:'Dark'}[theme]}</button>`;
 }
 function setPage(p){page=p;store.set('uat.page',p);closeDrawer();skeleton();fill()}
 
@@ -122,26 +132,28 @@ const SK={
  agents:()=>`<h2>Orchestrator</h2><div id="orch"></div><h2>Testers and fix agents</h2><div class="grid g3" id="roster"></div>`,
  tests:()=>`<div id="covsum"></div><div class="tools"><input type="search" id="tq" placeholder="Search rules, areas, agents" aria-label="Search tests" value="${h(filters.tq)}">${['all','violated','failed-unconfirmed','passed','untested'].map(s=>`<button class="pill" data-st="${s}" aria-pressed="${filters.st===s}">${s==='all'?'All':s.replace(/-/g,' ')}</button>`).join('')}</div><div class="tw" id="ttab"></div><h2>Replay runs (each finding's repro, re-run in a clean lane)</h2><div class="tw" id="rtab"></div>`,
  findings:()=>`<div id="fsum" class="grid g2"></div><h2>Clusters</h2><div class="tools"><input type="search" id="fq" placeholder="Search findings" aria-label="Search findings" value="${h(filters.q)}">${['all','blocker','major','minor','nit'].map(s=>`<button class="pill" data-sev="${s}" aria-pressed="${filters.sev===s}">${s==='all'?'All':s}</button>`).join('')}</div><div class="tw" id="ftab"></div>`,
- fixes:()=>`<div class="card" style="margin-bottom:12px">Approving here only grants permission. Nothing is fixed until you run <code>/uat-fix</code>, and nothing is pushed or merged. Approval is tied to the finding's content: if it changes, it needs a new decision.</div><div class="tools" id="fxtools"></div><div class="tw" id="fxtab"></div>`,
- audit:()=>`<div id="achain"></div><div class="tools"><input type="search" id="aq" placeholder="Filter by actor, type or detail" aria-label="Filter audit log" value="${h(filters.aq)}"><a class="btn" href="/download/audit.json" download>Download audit.json</a></div><div class="tw" id="atab"></div>`,
+ fixes:()=>`<div id="pipe" class="pipe"></div><div class="card" style="margin-bottom:12px">${ic('info')} This page only shows progress. To approve a fix, tell the orchestrator in chat or run <code>/uat-fix</code>; nothing is fixed, pushed or merged without that. Before each fix the knowledge graph lists the other issues and tests that share the same code, and the next run re-tests every fix.</div><div class="tools" id="fxtools"></div><div class="tw" id="fxtab"></div>`,
+ audit:()=>`<div id="achain"></div><div class="tools"><input type="search" id="aq" placeholder="Filter by actor, type or detail" aria-label="Filter audit log" value="${h(filters.aq)}"><a class="btn" href="/download/audit.json" download>${ic("dl")} audit.json</a></div><div class="tw" id="atab"></div>`,
  report:()=>`<div id="rsum"></div><div id="rbody"></div>`,
- graph:()=>`<div class="legend"><span><span class="dot" style="background:#6b7280"></span> orchestrator</span><span><span class="dot" style="background:var(--claude)"></span> tester</span><span><span class="dot" style="background:#94a3b8"></span> charter</span><span><span class="dot" style="background:#cbd5e1"></span> rule</span><span><span class="dot" style="background:var(--major)"></span> finding (size = severity)</span><span>drag nodes, hover for details</span></div><svg id="graph" role="img" aria-label="Relationship graph of agents, charters, rules and findings"></svg>`};
-function skeleton(){cancelAnimationFrame(raf);$('#view').innerHTML=SK[page]();if(page==='graph')startGraph();if(page==='audit')loadAudit();if(page==='report')loadReport()}
+ graph:()=>`${graphBar()}<div class="legend"><span>${ic('bug')} issue colour = severity, ring = status (green fixed/verified, red open, dashed regressed)</span><span>square = file</span><span>diamond = rule</span><span>triangle = pinned test</span><span>hexagon = fix</span><span style="color:var(--bad)">red dashed link = a later issue may come from this fix</span></div><svg id="graph" role="img" aria-label="Knowledge graph of code, rules, issues, tests and fixes"></svg>`};
+function phead(k){const[t,d]=PHEAD[k];return `<div class="phead"><span class="ib">${ic(k,'lg')}</span><div><h1>${t}</h1><p>${d}</p></div></div>`}
+function skeleton(){cancelAnimationFrame(raf);if(page==='graph')loadKB();$('#view').innerHTML=phead(page)+SK[page]();if(page==='graph')startGraph();if(page==='audit')loadAudit();if(page==='report')loadReport()}
 function fill(){renderSide();renderTop();F[page]&&F[page]()}
 
 const F={
  overview(){
   const n=S.next,sm=S.summary;
-  $('#banner').innerHTML=`<div class="banner"><div style="flex:1;min-width:220px"><b>${h(n.text)}</b><div class="sub">${n.cmd?'Next step: run the command on the right.':n.tab?'Open the page to review.':'You can leave this page open; it updates by itself.'}</div></div>${n.cmd?`<code class="chip" style="font-size:13px">${h(n.cmd)}</code><button class="btn sm" data-copy="${h(n.cmd)}">Copy</button>`:''}${n.tab?`<button class="btn p" data-go="${h(n.tab)}">Review</button>`:''}</div>`;
+  $('#banner').innerHTML=`<div class="banner"><div style="flex:1;min-width:220px"><b>${h(n.text)}</b><div class="sub">${n.cmd?'Next step: run the command on the right.':n.tab?'Decide in chat: ask the orchestrator to approve (or run /uat-fix).':'You can leave this page open; it updates by itself.'}</div></div>${n.cmd?`<code class="chip" style="font-size:13px">${h(n.cmd)}</code><button class="btn sm" data-copy="${h(n.cmd)}">${ic('copy')} Copy</button>`:''}${n.tab?`<button class="btn" data-go="${h(n.tab)}">${ic('fixes')} See them</button>`:''}</div>`;
   const t=sm.tests,f=sm.findings,fx=S.fixqueue,sl=x=>`<span style="font-size:15px;color:var(--mut)"> ${x}</span>`;
   $('#kpis').innerHTML=[
    ['Agents running',`${sm.agents.running}${sl('/ '+sm.agents.total)}`,`${sm.agents.done} done, ${sm.agents.failed} failed`],
    ['Rules tested',`${t.rules-t.untested}${sl('/ '+t.rules)}`,`${t.passed} held, ${t.violated} violated`],
    ['Confirmed findings',`${f.blocker+f.major+f.minor+f.nit}`,`${f.blocker} blocker · ${f.major} major · ${f.minor} minor`],
    ['Health score',S.score==null?'-':S.score+sl('/ 100'),S.score==null?'after /uat-feedback':'from the report'],
-   ['Fix queue',`${fx.filter(i=>i.state==='proposed').length}`,`${fx.filter(i=>i.state==='approved').length} approved · ${fx.filter(i=>i.state==='proven').length} proven`],
+   ['Fix queue',`${fx.filter(i=>i.state==='proposed').length}`,`waiting for a decision · ${fx.filter(i=>i.state==='approved').length} approved`],
    ['Elapsed',mmss(sm.elapsed_s),'since first event'],
-   ['Audit log',S.audit.ok?'Intact':'BROKEN',`${S.audit.count} records`]].map(([l,v,s])=>`<div class="card kpi"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${h(s)}</div></div>`).join('');
+   ['Knowledge graph',`${S.kb.nodes}${sl('nodes')}`,`${S.kb.status.verified||0} verified · ${S.kb.status.fixed||0} awaiting retest · ${S.kb.status.regressed||0} regressed`],
+   ['Audit log',S.audit.ok?'Intact':'BROKEN',`${S.audit.count} records`]].map(([l,v,s])=>`<div class="card kpi"><div class="l">${ic(KPI_IC[l]||'info')} ${l}</div><div class="v">${v}</div><div class="s">${h(s)}</div></div>`).join('');
   const run=S.agents.filter(a=>a.status==='running');
   $('#runnow').innerHTML=run.length?run.map(a=>`<div class="card agent" style="margin-bottom:8px" data-agent="${h(a.id)}" data-pop="agent|${h(a.id)}">${apet(a,44)}<div class="t"><b>${h(a.id)}</b> <span class="chip">${h(a.family)} / ${h(a.model)}</span><div class="now">${h(a.charter||'')} ${h(a.now)}</div></div></div>`).join(''):empty('No agent is running','Agents show up here while a wave is executing.');
   $('#feed').innerHTML=S.events.slice(-9).reverse().map(e=>`<div><time>${ago(e.ts)}</time>${petFor(e.actor)}<span><b>${h(e.actor)}</b> ${evText(e)}</span></div>`).join('')||empty('Quiet','No events yet.');
@@ -163,15 +175,17 @@ const F={
   const q=filters.q.toLowerCase(),rows=c.filter(x=>(filters.sev==='all'||x.severity===filters.sev)&&(!q||(x.cid+x.title+x.area+x.rule_id+x.agents.join(' ')).toLowerCase().includes(q)));
   $('#ftab').innerHTML=rows.length?`<table><thead><tr><th>Severity</th><th>Finding</th><th>Rule</th><th>Seen by</th><th>Replay</th><th>Verdict</th></tr></thead><tbody>${rows.map(x=>`<tr class="click" data-cluster="${h(x.cid)}"><td>${sevchip(x.severity)}</td><td><b>${h(x.title)}</b><div class="sub">${h(x.cid)} · ${h(x.area)}${(x.merge_reasons||[]).length?' · merged on '+x.merge_reasons.map(h).join(', '):''}</div></td><td>${h(x.rule_id)}</td><td>${x.agents.map(h).join(', ')}</td><td>${stchip(x.replay)}${x.fail_rate&&x.fail_rate<1?` ${Math.round(x.fail_rate*100)}%`:''}</td><td>${stchip(x.verdict)}</td></tr>`).join('')}</tbody></table>`:empty('No findings','Clusters appear after /uat-execute and /uat-feedback.')},
  fixes(){
-  const q=S.fixqueue,np=q.filter(i=>i.state==='proposed');
-  $('#fxtools').innerHTML=`<button class="btn p" id="ap" ${sel.size?'':'disabled'}>Approve selected (${sel.size})</button><button class="btn" id="apb" ${np.some(i=>['blocker','major'].includes(i.severity))?'':'disabled'}>Approve all blocker + major</button><button class="btn d" id="rj" ${sel.size?'':'disabled'}>Reject selected</button><span style="flex:1"></span>${['all','proposed','approved','fixing','proven','rejected'].map(s=>`<button class="pill" data-fx="${s}" aria-pressed="${filters.fx===s}">${s} ${s==='all'?q.length:q.filter(i=>i.state===s).length}</button>`).join('')}`;
-  const rows=q.filter(i=>filters.fx==='all'||i.state===filters.fx);
-  $('#fxtab').innerHTML=rows.length?`<table><thead><tr><th></th><th>Severity</th><th>Item</th><th>Kind</th><th>State</th></tr></thead><tbody>${rows.map(i=>`<tr class="click" data-cluster="${h(i.cid)}"><td>${i.state==='proposed'?`<input type="checkbox" data-id="${h(i.cid)}" aria-label="Select ${h(i.cid)}" ${sel.has(i.cid)?'checked':''}>`:''}</td><td>${sevchip(i.severity)}</td><td><b>${h(i.title)}</b><div class="sub">${h(i.cid)} · ${h(i.area)}${i.branch?' · '+h(i.branch):''}</div></td><td>${h(i.kind)}</td><td>${stchip(i.state)}</td></tr>`).join('')}</tbody></table>`:empty('Nothing here','Failed or non-optimal results land here after /uat-feedback.')},
+  const q=S.fixqueue,st=S.kb.status,STG=['open','approved','fixing','fixed','verified'],LB={open:'Found',approved:'Approved',fixing:'Fixing',fixed:'Fixed, awaiting re-test',verified:'Verified in a later run',regressed:'Regressed'};
+  $('#pipe').innerHTML=[...STG,'regressed'].map(k=>`<div class="card"><div class="sub">${LB[k]}</div><b style="color:${k==='regressed'&&st[k]?'var(--bad)':'inherit'}">${num(st[k])}</b></div>`).join('');
+  $('#fxtools').innerHTML=['all','open','approved','fixing','fixed','verified','regressed'].map(x=>`<button class="pill" data-fx="${x}" aria-pressed="${filters.fx===x}">${x} ${x==='all'?q.length:q.filter(i=>(i.life||'open')===x).length}</button>`).join('');
+  const stage=i=>{const life=i.life||'open',k=STG.indexOf(life);return `<span class="stage" title="${h(life)}">${STG.map((_,j)=>`<i class="${life==='regressed'?'bad':j<k?'on':j===k?(k>=3?'on':'cur'):''}"></i>`).join('')}</span>`};
+  const rows=q.filter(i=>filters.fx==='all'||(i.life||'open')===filters.fx);
+  $('#fxtab').innerHTML=rows.length?`<table><thead><tr><th>Severity</th><th>Issue</th><th>Progress</th><th>Status</th><th>Branch</th></tr></thead><tbody>${rows.map(i=>`<tr class="click" data-cluster="${h(i.cid)}"><td>${sevchip(i.severity)}</td><td><b>${h(i.title)}</b><div class="sub">${h(i.cid)} · ${h(i.area)} · ${h(i.kind)}</div></td><td>${stage(i)}</td><td>${stchip(i.life||i.state)}</td><td class="mono">${h(i.branch||'')}</td></tr>`).join('')}</tbody></table>`:empty('Nothing here','Failed or non-optimal results land here after /uat-feedback.')},
  audit(){const d=auditData;if(!d)return;
   $('#achain').innerHTML=`<div class="card" style="margin-bottom:12px;display:flex;gap:14px;align-items:center;flex-wrap:wrap"><span class="st ${d.ok?'passed':'violated'}" style="font-size:13px">${d.ok?'Chain verified':num(d.bad_seq)===0?'NOT ANCHORED':'CHAIN BROKEN at record '+num(d.bad_seq)}</span><span>${num(d.count)} records, each carries the hash of the one before. Editing or deleting a past line breaks the chain.</span><span class="mono sub">head ${h(String(d.head||'').slice(0,16))}</span></div>`;
   $('#atab').innerHTML=d.rows.length?`<table><thead><tr><th>#</th><th>Time</th><th>Actor</th><th>Action</th><th>Detail</th><th>Hash</th></tr></thead><tbody>${d.rows.map(x=>`<tr><td>${num(x.seq)}</td><td class="mono">${new Date(num(x.ts)*1000).toLocaleTimeString()}</td><td>${h(x.actor)}</td><td><b>${h(x.type)}</b></td><td class="mono" style="word-break:break-word">${h(typeof x.data==='string'?x.data:JSON.stringify(x.data))}</td><td class="mono sub">${h(String(x.hash||'').slice(0,12))}</td></tr>`).join('')}</tbody></table>`:empty('Audit log is empty','Every phase change, wave, replay, verdict, approval and fix state change is recorded here.')},
  report(){const d=reportData,sm=S.summary,has=S.files.includes('report.md');
-  $('#rsum').innerHTML=`<div class="tools"><a class="btn p" href="/download/report.md" download>Download report.md</a><a class="btn" href="/download/findings.json" download>findings.json</a><a class="btn" href="/download/junit.xml" download>junit.xml</a><a class="btn" href="/download/audit.json" download>audit.json</a><span class="sub">${has?'Report is current as of the last /uat-feedback.':'No report yet. Run /uat-feedback.'}</span></div>
+  $('#rsum').innerHTML=`<div class="tools"><a class="btn p" href="/download/report.md" download>${ic("dl")} report.md</a><a class="btn" href="/download/findings.json" download>${ic("dl")} findings.json</a><a class="btn" href="/download/junit.xml" download>${ic("dl")} junit.xml</a><a class="btn" href="/download/audit.json" download>${ic("dl")} audit.json</a><span class="sub">${has?'Report is current as of the last /uat-feedback.':'No report yet. Run /uat-feedback.'}</span></div>
   <div class="grid g4"><div class="card kpi"><div class="l">Health score</div><div class="v">${S.score==null?'-':S.score}</div></div><div class="card kpi"><div class="l">Rules tested</div><div class="v">${sm.tests.rules-sm.tests.untested}/${sm.tests.rules}</div></div><div class="card kpi"><div class="l">Agents used</div><div class="v">${sm.agents.total}</div><div class="s">${[...new Set(S.agents.map(a=>a.family))].map(h).join(', ')}</div></div><div class="card kpi"><div class="l">Wall time</div><div class="v">${mmss(sm.elapsed_s)}</div></div></div>`;
   const fs=(d&&d.findings)||[];
   $('#rbody').innerHTML=`<h2>Findings in the report</h2>`+(fs.length?fs.map(x=>`<div class="card" style="margin-bottom:10px"><div>${sevchip(x.severity)} <b>${h(x.title)}</b> <span class="sub">${h(x.cid)} · ${h(x.area)}${x.rule_id?' · '+h(x.rule_id):''}</span></div><dl class="kv" style="margin-top:8px"><dt>Expected</dt><dd>${h(x.expected)}</dd><dt>Actual</dt><dd>${h(x.actual)}</dd><dt>Evidence</dt><dd>${h(x.evidence)}</dd><dt>Confidence</dt><dd>${num(x.confidence&&x.confidence.agents)} agent(s)${x.confidence&&x.confidence.intermittent?', INTERMITTENT, failed '+Math.round(num(x.confidence.fail_rate)*100)+'% of stress runs':''}</dd><dt>Fixed when</dt><dd><code>${h(x.acceptance)}</code></dd></dl></div>`).join(''):empty('No accepted findings in the report','Either nothing broke, or /uat-feedback has not run yet.'))+`<h2>Tests that ran</h2><div class="sub">${S.tests.length} rules, ${S.replays.length} replayed repros. Details are on the Tests page.</div>`}
@@ -185,10 +199,15 @@ async function openCluster(cid){
   const dr=$('#drawer');dr.classList.add('open');dr.innerHTML='<div class="empty">Loading...</div>';
   try{const c=await api('/api/cluster/'+encodeURIComponent(cid));const q=S.fixqueue.find(i=>i.cid===cid);
    dr.innerHTML=`<button class="btn sm x" id="dx">Close</button><h3>${h(c.title)}</h3><div>${sevchip(c.severity)} ${stchip(c.verdict)} <span class="sub">${h(c.cid)} · ${h(c.area)} · ${h(c.rule_id)}</span></div>
-   ${q?`<div style="margin-top:12px" class="tools">${stchip(q.state)}${q.state==='proposed'?`<button class="btn p sm" data-act="approve" data-cid="${h(cid)}">Approve fix</button><button class="btn d sm" data-act="reject" data-cid="${h(cid)}">Reject</button>`:''}</div>`:''}
+   <div style="margin-top:10px">${q?stchip(q.life||q.state):''} ${c.kb_status?`<span class="chip">${ic('graph')} graph: ${h(c.kb_status)}</span>`:''}</div>
+   <h4>${ic('layers')} What a fix here can affect (from the knowledge graph)</h4>
+   <div><span class="st ${c.impact.risk==='high'?'violated':c.impact.risk==='medium'?'proposed':'passed'}">risk ${h(c.impact.risk)}</span> <span class="sub">files: ${c.impact.files.map(h).join(', ')||'unknown'}</span></div>
+   ${c.impact.related.length?`<div class="tw" style="max-height:180px;margin-top:8px"><table><thead><tr><th>Issue</th><th>Status</th><th>Why related</th></tr></thead><tbody>${c.impact.related.map(x=>`<tr class="click" data-cluster="${h(x.cid)}"><td>${sevchip(x.sev)} ${h(x.title)}</td><td>${stchip(x.status)}</td><td class="sub">${x.why.map(h).join('; ')}</td></tr>`).join('')}</tbody></table></div>`:'<div class="sub" style="margin-top:6px">No other known issue shares this code.</div>'}
+   ${c.impact.rerun.length?`<div class="sub" style="margin-top:6px">Re-run before calling a fix done: ${c.impact.rerun.map(h).join(', ')}</div>`:''}
+   ${c.impact.past_fixes.length?`<div class="sub">Earlier fixes in this code: ${c.impact.past_fixes.map(p=>h(p.branch)).join(', ')}</div>`:''}
    <h4>Seen by</h4><div>${c.agents.map(a=>`<span class="chip" style="margin-right:4px">${petFor(a)} ${h(a)}</span>`).join('')}${(c.merge_reasons||[]).length?`<div class="sub" style="margin-top:6px">Merged on: ${c.merge_reasons.map(h).join(', ')}</div>`:''}</div>
    ${c.verifier&&c.verifier.verdict?`<h4>Verifier</h4><div>${stchip(c.verifier.verdict)} ${h(c.verifier.note)} <span class="sub">by ${h(c.verifier.by)}</span></div>`:''}
-   ${c.members.map(m=>`<h4>${h(m.agent)} · ${h(m.id)}</h4><dl class="kv"><dt>Expected</dt><dd>${h(m.expected)}</dd><dt>Actual</dt><dd>${h(m.actual)}</dd><dt>Evidence</dt><dd>${h(m.evidence)}</dd><dt>Suspect</dt><dd>${h(m.suspect)}</dd></dl>
+   ${c.members.map(m=>`<h4>${h(m.agent)} · ${h(m.id)}</h4><dl class="kv"><dt>Expected</dt><dd>${h(m.expected)}</dd><dt>Actual</dt><dd>${h(m.actual)}</dd><dt>Evidence</dt><dd>${h(m.evidence)}</dd><dt>Suspect</dt><dd>${h(m.suspect||'not known (tester was blind to the code)')}</dd></dl>
     <h4>Repro (${h(m.repro_kind)}) <span class="sub" style="text-transform:none">written by an untrusted agent; run only through replay</span></h4><pre>${h(m.repro_cmd)}</pre>
     <h4>Replay: ${h(m.replay.status)}, failed ${Math.round(num(m.replay.fail_rate)*100)}% of ${(m.replay.runs||[]).length} runs${m.replay.touches_target?'':' · does not touch the target'}</h4>
     <div class="tw" style="max-height:200px"><table><thead><tr><th>Run</th><th>Exit</th><th>Secs</th><th>Output tail</th></tr></thead><tbody>${(m.replay.runs||[]).map((x,i)=>`<tr><td>${i+1}</td><td>${x.rc===null?'timeout':h(x.rc)}</td><td>${h(x.secs)}</td><td class="mono" style="word-break:break-word">${h(x.tail)}</td></tr>`).join('')}</tbody></table></div>`).join('')}`;
@@ -208,52 +227,69 @@ function showPop(html,e){const p=$('#pop');p.innerHTML=html;p.style.display='blo
 const hidePop=()=>{$('#pop').style.display='none'};
 document.addEventListener('mousemove',e=>{if(!S)return;const t=e.target.closest('[data-pop]');if(!t){if(!e.target.closest('#graph'))hidePop();return}const[k,id]=t.dataset.pop.split('|');const a=k==='agent'?S.agents.find(x=>x.id===id):null;if(a)showPop(popFor(a),e);else if(k==='orch')showPop(`<h4>Orchestrator</h4><dl><dt>model</dt><dd>${h(S.orchestrator.model)}</dd><dt>role</dt><dd>plans, assigns, judges by script, reports</dd></dl>`,e)});
 
-/* graph */
+/* knowledge graph: code, rules, issues, tests, fixes (+ optional agents) */
+const TYPES={issue:'Issue',file:'File',rule:'Rule',area:'Area',test:'Test',fix:'Fix',agent:'Agent'};
+const STATUSC={open:'var(--bad)',approved:'var(--warn)',fixing:'var(--info)',fixed:'var(--ok)',verified:'var(--ok)',regressed:'var(--bad)',wontfix:'var(--nit)',not_seen:'var(--nit)'};
 let G={nodes:[],edges:[],sig:''},raf=0,drag=null;
+function shape(n){const c=n.color||'#94a3b8',r=n.r;
+  if(n.t==='issue')return `<circle r="${r}" fill="${SEVC[n.sev]||SEVC.nit}" stroke="${STATUSC[n.status]||'none'}" stroke-width="${n.status==='regressed'?4:3}" ${n.status==='regressed'?'stroke-dasharray="3 2"':''}/>`;
+  if(n.t==='file')return `<rect x="${-r}" y="${-r*.75}" width="${r*2}" height="${r*1.5}" rx="3" fill="#7c93b8"/>`;
+  if(n.t==='rule')return `<rect x="${-r*.8}" y="${-r*.8}" width="${r*1.6}" height="${r*1.6}" fill="#c4b5fd" transform="rotate(45)"/>`;
+  if(n.t==='test')return `<path d="M0 ${-r}L${r} ${r*.8}L${-r} ${r*.8}Z" fill="#34d399"/>`;
+  if(n.t==='fix')return `<path d="M${r} 0L${r/2} ${r*.87}L${-r/2} ${r*.87}L${-r} 0L${-r/2} ${-r*.87}L${r/2} ${-r*.87}Z" fill="#8b5cf6"/>`;
+  return `<circle r="${r}" fill="#cbd5e1"/>`}
 function buildGraph(){
-  const nodes=[],edges=[],ix={};const add=(id,o)=>{if(!ix[id]){ix[id]={id,x:Math.random()*600+100,y:Math.random()*400+100,vx:0,vy:0,...o};nodes.push(ix[id])}return ix[id]};
-  add('orch',{type:'orchestrator',label:'Orchestrator',r:22,color:'#6b7280',info:{model:S.orchestrator.model}});
-  S.agents.forEach(a=>{add('a:'+a.id,{type:a.role==='fix'?'fix':'agent',label:a.id,r:14,color:acol(a),agent:a});edges.push(['orch','a:'+a.id])});
-  (S.charters||[]).forEach(c=>{const a=S.agents.find(x=>x.charter===c.id);add('c:'+c.id,{type:'charter',label:c.id,r:8,color:'#94a3b8',info:{area:c.area,lens:c.lens}});if(a)edges.push(['a:'+a.id,'c:'+c.id]);(c.rule_ids||[]).forEach(rid=>{if(S.clusters.some(k=>k.rule_id===rid)){add('r:'+rid,{type:'rule',label:rid,r:6,color:'#cbd5e1',info:{rule:((S.rules||[]).find(x=>x.id===rid)||{}).statement}});edges.push(['c:'+c.id,'r:'+rid])}})});
-  S.clusters.forEach(k=>{const fq=S.fixqueue.find(f=>f.cid===k.cid);add('k:'+k.cid,{type:'finding',label:k.cid.slice(0,8),r:{blocker:14,major:11,minor:8,nit:6}[k.severity]||6,color:SEVC[k.severity],info:{title:k.title,severity:k.severity,replay:k.replay,verdict:k.verdict,fix:fq?fq.state:'-'}});k.agents.forEach(id=>ix['a:'+id]&&edges.push(['a:'+id,'k:'+k.cid]));if(k.rule_id&&ix['r:'+k.rule_id])edges.push(['r:'+k.rule_id,'k:'+k.cid])});
-  const sig=nodes.map(n=>n.id).join();
-  if(sig!==G.sig)G={nodes,edges:edges.filter(e=>ix[e[0]]&&ix[e[1]]).map(e=>[ix[e[0]],ix[e[1]]]),sig};
-  else nodes.forEach(n=>{const m=G.nodes.find(o=>o.id===n.id);if(m)Object.assign(m,{info:n.info,agent:n.agent,color:n.color})})}
+  if(!kbData)return;const T=filters.types,keep=new Set(),nodes=[],ix={};
+  kbData.nodes.forEach(n=>{if(T[n.t]){keep.add(n.id);ix[n.id]={...n,id:n.id,x:Math.random()*600+100,y:Math.random()*400+100,vx:0,vy:0,r:n.t==='issue'?({blocker:13,major:10,minor:8,nit:6}[n.sev]||7):n.t==='file'?9:6}}});
+  const edges=kbData.edges.filter(e=>keep.has(e[0])&&keep.has(e[2])).map(e=>[e[0],e[2],e[1]]);
+  if(T.agent)S.agents.forEach(a=>{const id='g:'+a.id;ix[id]={id,t:'agent',label:a.id,agent:a,x:Math.random()*600+100,y:Math.random()*400+100,vx:0,vy:0,r:14};S.clusters.forEach(k=>{if(k.agents.includes(a.id)&&keep.has('i:'+k.cid))edges.push([id,'i:'+k.cid,'found'])})});
+  const all=Object.values(ix),sig=all.map(n=>n.id).join()+edges.length;
+  if(sig!==G.sig){const old=Object.fromEntries(G.nodes.map(n=>[n.id,n]));all.forEach(n=>{const o=old[n.id];if(o){n.x=o.x;n.y=o.y}});G={nodes:all,edges:edges.map(e=>[ix[e[0]],ix[e[1]],e[2]]).filter(e=>e[0]&&e[1]),sig}}
+  else all.forEach(n=>{const m=G.nodes.find(o=>o.id===n.id);if(m)Object.assign(m,{status:n.status,sev:n.sev,label:n.label,agent:n.agent})})}
+function graphBar(){const T=filters.types;return `<div class="tools" id="gbar"><input type="search" id="gq" placeholder="Highlight a file, issue or rule" aria-label="Search graph" value="${h(filters.gq)}">${Object.entries(TYPES).map(([k,l])=>`<button class="pill" data-type="${k}" aria-pressed="${!!T[k]}">${l}</button>`).join('')}<span class="sub">${kbData?kbData.nodes.length+' nodes, '+kbData.edges.length+' links, '+kbData.runs+' report build(s)':''}</span></div>`}
 function startGraph(){
   const svg=$('#graph');if(!svg)return;cancelAnimationFrame(raf);buildGraph();const W=svg.clientWidth,Ht=svg.clientHeight;
-  const tick=()=>{const N=G.nodes;
-   for(const a of N){for(const b of N){if(a===b)continue;const dx=a.x-b.x,dy=a.y-b.y,d2=dx*dx+dy*dy+.01,f=1400/d2,d=Math.sqrt(d2);a.vx+=dx*f/d;a.vy+=dy*f/d}a.vx+=(W/2-a.x)*.002;a.vy+=(Ht/2-a.y)*.002}
-   for(const[a,b]of G.edges){const dx=b.x-a.x,dy=b.y-a.y,d=Math.sqrt(dx*dx+dy*dy)||1,f=(d-90)*.02;a.vx+=dx/d*f;a.vy+=dy/d*f;b.vx-=dx/d*f;b.vy-=dy/d*f}
-   for(const n of N){if(n===drag)continue;n.vx*=.82;n.vy*=.82;n.x=Math.max(24,Math.min(W-24,n.x+n.vx));n.y=Math.max(24,Math.min(Ht-30,n.y+n.vy))}
-   svg.innerHTML=G.edges.map(([a,b])=>`<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="var(--line)" stroke-width="1.5"/>`).join('')+G.nodes.map(n=>{const av=n.type==='orchestrator'?ORCH(n.r*2):n.agent?apet(n.agent,n.r*2.2):null;const o=n.r*1.1;
-    return `<g data-n="${h(n.id)}" transform="translate(${n.x-(av?o:0)} ${n.y-(av?o:0)})" style="cursor:grab">${av||`<circle r="${n.r}" fill="${n.color}"/>`}<text y="${n.r*2.2+10}" x="${av?o:0}" text-anchor="middle" font-size="10" fill="var(--mut)">${h(n.label)}</text></g>`}).join('');
+  const tick=()=>{const N=G.nodes;if(!N.length){svg.innerHTML=`<text x="${W/2}" y="${Ht/2}" text-anchor="middle" fill="var(--mut)" font-size="14">No knowledge yet. It fills after /uat-feedback builds a report.</text>`;raf=requestAnimationFrame(tick);return}
+   for(const a of N){for(const b of N){if(a===b)continue;const dx=a.x-b.x,dy=a.y-b.y,d2=dx*dx+dy*dy+.01,f=1800/d2,d=Math.sqrt(d2);a.vx+=dx*f/d;a.vy+=dy*f/d}a.vx+=(W/2-a.x)*.002;a.vy+=(Ht/2-a.y)*.002}
+   for(const[a,b]of G.edges){const dx=b.x-a.x,dy=b.y-a.y,d=Math.sqrt(dx*dx+dy*dy)||1,f=(d-95)*.02;a.vx+=dx/d*f;a.vy+=dy/d*f;b.vx-=dx/d*f;b.vy-=dy/d*f}
+   for(const n of N){if(n===drag)continue;n.vx*=.8;n.vy*=.8;n.x=Math.max(26,Math.min(W-26,n.x+n.vx));n.y=Math.max(26,Math.min(Ht-30,n.y+n.vy))}
+   const q=filters.gq.toLowerCase(),dim=n=>q&&!(n.label||n.id).toLowerCase().includes(q);
+   svg.innerHTML=G.edges.map(([a,b,rel])=>`<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="${rel==='suspected_cause'?'var(--bad)':'var(--line)'}" stroke-width="${rel==='suspected_cause'?2:1.4}" ${rel==='suspected_cause'?'stroke-dasharray="4 3"':''} opacity="${dim(a)&&dim(b)?.25:1}"/>`).join('')+G.nodes.map(n=>{const av=n.agent?apet(n.agent,n.r*2.2):null,o=n.r*1.1,lab=(n.label||'').slice(0,n.t==='file'?26:18);
+    return `<g data-n="${h(n.id)}" opacity="${dim(n)?.25:1}" transform="translate(${n.x-(av?o:0)} ${n.y-(av?o:0)})" style="cursor:pointer">${av||shape(n)}<text y="${n.r*(av?2.2:1)+11}" x="${av?o:0}" text-anchor="middle" font-size="10" fill="var(--mut)">${h(lab)}</text></g>`}).join('');
    raf=requestAnimationFrame(tick)};tick();
-  svg.onmousedown=e=>{const g=e.target.closest('[data-n]');if(g)drag=G.nodes.find(n=>n.id===g.dataset.n)};
-  svg.onmousemove=e=>{const r=svg.getBoundingClientRect();if(drag){drag.x=e.clientX-r.left;drag.y=e.clientY-r.top;drag.vx=drag.vy=0}const g=e.target.closest('[data-n]');if(!g){hidePop();return}const n=G.nodes.find(m=>m.id===g.dataset.n);if(!n)return;
-   if(n.agent)showPop(popFor(n.agent),e);else showPop(`<h4>${h(n.label)} · ${h(n.type)}</h4><dl>${Object.entries(n.info||{}).map(([k,v])=>`<dt>${h(k)}</dt><dd>${h(v)}</dd>`).join('')}</dl>`,e)};
-  svg.onmouseleave=hidePop}
-addEventListener('mouseup',()=>{drag=null});
-
+  svg.onmousedown=e=>{const g=e.target.closest('[data-n]');if(g){drag=G.nodes.find(n=>n.id===g.dataset.n);drag.moved=false}};
+  svg.onmousemove=e=>{const r=svg.getBoundingClientRect();if(drag){drag.moved=true;drag.x=e.clientX-r.left;drag.y=e.clientY-r.top;drag.vx=drag.vy=0}const g=e.target.closest('[data-n]');if(!g){hidePop();return}const n=G.nodes.find(m=>m.id===g.dataset.n);if(!n)return;
+   if(n.agent)showPop(popFor(n.agent),e);else showPop(`<h4>${h(TYPES[n.t])}: ${h(n.label)}</h4><dl>${['sev','status','area','s','first','last'].filter(k=>n[k]!==undefined&&n[k]!=='').map(k=>`<dt>${k}</dt><dd>${h(n[k])}</dd>`).join('')}</dl>`,e)};
+  svg.onmouseup=e=>{const g=e.target.closest('[data-n]');if(g&&drag&&!drag.moved)openNode(drag.id);drag=null};svg.onmouseleave=hidePop}
+function openNode(id){
+  if(id.startsWith('g:'))return openAgent(id.slice(2));
+  if(id.startsWith('i:')&&S.clusters.some(c=>c.cid===id.slice(2)))return openCluster(id.slice(2));
+  const n=kbData.nodes.find(x=>x.id===id);if(!n)return;const nb=kbData.edges.filter(e=>e[0]===id||e[2]===id).map(e=>({rel:e[0]===id?e[1]:'is '+e[1]+' by',n:kbData.nodes.find(x=>x.id===(e[0]===id?e[2]:e[0]))})).filter(x=>x.n);
+  const dr=$('#drawer');dr.classList.add('open');
+  dr.innerHTML=`<button class="btn sm x" id="dx">Close</button><h3>${h(n.label)}</h3><div><span class="chip">${h(TYPES[n.t])}</span> ${n.status?stchip(n.status):''} ${n.sev?sevchip(n.sev):''}</div>${n.s?`<p>${h(n.s)}</p>`:''}
+  ${n.hist&&n.hist.length?`<h4>History</h4>${n.hist.map(x=>`<div class="sub">report build ${num(x[0])}: ${h(x[1])} ${h(x[2])}</div>`).join('')}`:''}
+  <h4>Connected to</h4>${nb.map(x=>`<div class="sub"><b>${h(x.rel)}</b> ${h(TYPES[x.n.t])}: ${h(x.n.label)}</div>`).join('')||'<div class="sub">nothing</div>'}`}
+async function loadKB(){try{kbData=await api('/api/kb')}catch(e){kbData=null}if(page==='graph'){buildGraph();const b=$('#gbar');if(b&&!b.contains(document.activeElement))b.outerHTML=graphBar()}}
 /* events */
 document.addEventListener('click',async e=>{
   const t=e.target;let el;
-  if(t.id==='th')return cycleTheme();
+  if(t.closest('#collapse')){document.body.classList.toggle('collapsed');store.set('uat.side',document.body.classList.contains('collapsed')?'1':'0');return renderSide()}
+  if(t.closest('#th'))return cycleTheme();
+  if(el=t.closest('[data-type]')){filters.types[el.dataset.type]=filters.types[el.dataset.type]?0:1;buildGraph();const b=$('#gbar');if(b)b.outerHTML=graphBar();return}
   if(el=t.closest('.nav'))return setPage(el.dataset.p);
   if(t.id==='dx')return closeDrawer();
   if(el=t.closest('[data-copy]')){try{await navigator.clipboard.writeText(el.dataset.copy);toast('Copied')}catch(x){toast('Copy failed')}return}
   if(el=t.closest('[data-go]'))return setPage(el.dataset.go);
-  if(el=t.closest('[data-act]')){const cid=el.dataset.cid;try{await api('/api/fix/'+el.dataset.act,{ids:[cid]});toast(el.dataset.act==='approve'?'Approved. Run /uat-fix to start it.':'Rejected');await load();openCluster(cid)}catch(x){toast('Failed: '+x.message)}return}
-  if(t.matches('input[data-id]')){t.checked?sel.add(t.dataset.id):sel.delete(t.dataset.id);return F.fixes()}
   if(el=t.closest('[data-sev]')){filters.sev=el.dataset.sev;skeleton();return fill()}
   if(el=t.closest('[data-st]')){filters.st=el.dataset.st;skeleton();return fill()}
   if(el=t.closest('[data-fx]')){filters.fx=el.dataset.fx;return F.fixes()}
-  if(t.id==='ap'||t.id==='rj'||t.id==='apb'){const p=t.id==='rj'?'/api/fix/reject':'/api/fix/approve',body=t.id==='apb'?{severities:['blocker','major']}:{ids:[...sel]};try{const r=await api(p,body);sel.clear();toast(`${(r.changed||[]).length} item(s) ${t.id==='rj'?'rejected':'approved'}`);await load()}catch(x){toast('Failed: '+x.message)}return}
   if(el=t.closest('[data-cluster]')){if(t.closest('input'))return;return openCluster(el.dataset.cluster)}
   if(el=t.closest('[data-agent]'))return openAgent(el.dataset.agent);
 });
-document.addEventListener('input',e=>{const t=e.target;if(t.id==='tq'){filters.tq=t.value;F.tests()}if(t.id==='fq'){filters.q=t.value;F.findings()}if(t.id==='aq'){filters.aq=t.value;clearTimeout(loadAudit.t);loadAudit.t=setTimeout(loadAudit,250)}});
+document.addEventListener('input',e=>{const t=e.target;if(t.id==='tq'){filters.tq=t.value;F.tests()}if(t.id==='fq'){filters.q=t.value;F.findings()}if(t.id==='gq'){filters.gq=t.value}if(t.id==='aq'){filters.aq=t.value;clearTimeout(loadAudit.t);loadAudit.t=setTimeout(loadAudit,250)}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDrawer();if(/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)||e.metaKey||e.ctrlKey||e.altKey)return;const i=parseInt(e.key,10);if(i>=1&&i<=PAGES.length)setPage(PAGES[i-1][0])});
+if(store.get('uat.side')==='1')document.body.classList.add('collapsed');
 let first=true;
-async function load(){try{S=await api('/api/state');lastOK=Date.now()/1000;if(first){first=false;skeleton()}fill();if(page==='audit')loadAudit();if(page==='graph')buildGraph()}catch(e){if(S)renderTop()}}
+async function load(){try{S=await api('/api/state');lastOK=Date.now()/1000;if(first){first=false;skeleton()}fill();if(page==='audit')loadAudit();if(page==='graph')loadKB()}catch(e){if(S)renderTop()}}
 load();setInterval(load,1500);
 </script></body></html>
