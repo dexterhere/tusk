@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # /uat-status [down | resume | clean]
 
-`S=${UAT_HOME:-$HOME/Work/uat}`. Caveman chat.
+`S=${UAT_HOME:-$HOME/.tusk}`. Caveman chat.
 
 ## Default: show status
 1. `cat .uat/state.json`; `python3 $S/scripts/uat.py uat_env lanes status --root .`

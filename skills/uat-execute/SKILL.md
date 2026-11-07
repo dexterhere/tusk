@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # /uat-execute: run the swarm in waves
 
-`S=${UAT_HOME:-$HOME/Work/uat}`. Requires phase `planned`. Caveman chat. You are the orchestrator; testers are blind and cheap, so rigor comes from narrow charters, schema, isolation and replay, not model strength. Call host-side scripts as `python3 $S/scripts/uat.py <script> ... --root .` (works for local and ssh targets).
+`S=${UAT_HOME:-$HOME/.tusk}`. Requires phase `planned`. Caveman chat. You are the orchestrator; testers are blind and cheap, so rigor comes from narrow charters, schema, isolation and replay, not model strength. Call host-side scripts as `python3 $S/scripts/uat.py <script> ... --root .` (works for local and ssh targets).
 
 ## 0. Preconditions
 - `uat.py uat_env lanes status` healthy, else `lanes up`. Dashboard running (`/uat dashboard`), tell the user the link.

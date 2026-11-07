@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # /uat [dashboard | next | <stage>]
 
-`S=${UAT_HOME:-$HOME/Work/uat}`. Caveman chat. This is the front door; the work lives in the stage skills.
+`S=${UAT_HOME:-$HOME/.tusk}`. Caveman chat. This is the front door; the work lives in the stage skills.
 
 1. Read `.uat/state.json` (missing = never initialised) and print a 3-line status: phase, target (this computer or ssh host), counts from `.uat/clusters.json` and `.uat/fixqueue.json`.
 2. **Dashboard** (always offer, start on `dashboard` or after init): `python3 $S/scripts/dashboard.py --root . &` (background), then tell the user `http://127.0.0.1:7777`. It is read-only: agents with label popups, who orchestrates, which tests ran, findings, the fix cycle (found, approved, fixing, fixed, verified, regressed), the audit log, the report and the knowledge graph. It has no buttons that change anything; approvals happen in chat. Re-use a running one (`curl -s 127.0.0.1:7777/api/state`).

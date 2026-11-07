@@ -1,0 +1,133 @@
+#!/usr/bin/env python3
+"""tusk: install, check and launch the Tusk UAT swarm.
+
+  tusk setup        guided: check this machine, link the skills, offer the dashboard
+  tusk doctor       check requirements (exit 1 if something required is missing)
+  tusk install      link the /uat* skills into ~/.claude/skills and ~/.tusk -> this checkout
+  tusk uninstall    remove only the links that point at this checkout
+  tusk dashboard    start the dashboard for the current project  [--root D] [--port N]
+  tusk token        print the dashboard edit token (never paste it into chat)
+  tusk update       git pull --ff-only in this checkout, then re-link
+"""
+import argparse
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+AGENT_CLIS = ("claude", "codex", "opencode")
+
+
+def home():
+    return Path(os.environ.get("HOME") or Path.home())
+
+
+def checks():
+    """[(label, ok, required, hint)]"""
+    py = sys.version_info
+    found = [c for c in AGENT_CLIS if shutil.which(c)]
+    return [
+        ("Linux", sys.platform.startswith("linux"), True, "Tusk's sandbox needs Linux (bubblewrap)"),
+        (f"python3 {py.major}.{py.minor}", py >= (3, 10), True, "install Python 3.10 or newer (developed on 3.14)"),
+        ("git", bool(shutil.which("git")), True, "install git"),
+        ("bwrap (bubblewrap)", bool(shutil.which("bwrap")), True, "sudo pacman -S bubblewrap  |  sudo apt install bubblewrap"),
+        ("an agent CLI (" + (", ".join(found) or "none of " + "/".join(AGENT_CLIS)) + ")", bool(found), True, "install and log in to claude, codex or opencode"),
+        ("claude (Claude Code, runs the /uat commands)", bool(shutil.which("claude")), False, "https://claude.com/claude-code (scripts still work without it)"),
+        ("rsync + ssh (only for remote hosts)", bool(shutil.which("rsync") and shutil.which("ssh")), False, "needed only if you test on an ssh host"),
+    ]
+
+
+def doctor(quiet=False):
+    bad = 0
+    for label, ok, req, hint in checks():
+        if not quiet:
+            print(f"  [{'ok' if ok else ('MISSING' if req else 'optional')}] {label}" + ("" if ok else f"\n         -> {hint}"))
+        bad += (not ok) and req
+    if not quiet:
+        print("\nReady." if not bad else f"\n{bad} required item(s) missing. Fix them, then run: tusk doctor")
+    return bad == 0
+
+
+def links():
+    return [(home() / ".tusk", ROOT)] + [(home() / ".claude" / "skills" / s.name, s) for s in sorted((ROOT / "skills").iterdir()) if s.is_dir()]
+
+
+def install():
+    if "_npx" in str(ROOT):
+        sys.exit("This copy lives in npx's temporary cache and will be deleted. Install it permanently instead:\n  npm i -g @dexterhere/tusk && tusk install\n  or: curl -fsSL https://raw.githubusercontent.com/dexterhere/tusk/main/install.sh | sh")
+    (home() / ".claude" / "skills").mkdir(parents=True, exist_ok=True)
+    for link, target in links():
+        if link.is_symlink() or not link.exists():
+            if link.is_symlink() and link.resolve() == target:
+                continue
+            link.unlink(missing_ok=True)
+            link.symlink_to(target)
+            print(f"  linked {link} -> {target}")
+        else:
+            print(f"  SKIPPED {link}: a real file or folder is there; move it away and run again")
+    print("Done. Restart Claude Code, then run /uat-full inside the project you want to test.")
+
+
+def uninstall():
+    for link, target in links():
+        if link.is_symlink() and link.resolve() == target:
+            link.unlink()
+            print(f"  removed {link}")
+    print("Done. Your projects' .uat/ folders were not touched.")
+
+
+def run_script(name, *args):
+    os.execv(sys.executable, [sys.executable, str(ROOT / "scripts" / name), *args])
+
+
+def ask(q):
+    try:
+        return input(f"{q} [Y/n] ").strip().lower() in ("", "y", "yes")
+    except EOFError:
+        return False
+
+
+def setup():
+    print("Tusk setup\n")
+    ok = doctor()
+    if not ok:
+        return 1
+    if ask("\nLink the /uat commands into Claude Code?"):
+        install()
+    if ask("\nStart the dashboard now for the current folder (http://127.0.0.1:7777)?"):
+        print("Press Ctrl+C to stop it.")
+        run_script("dashboard.py", "--root", os.getcwd())
+    print("\nNext: open Claude Code in your project and run /uat-full")
+    return 0
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("cmd", nargs="?", choices=["setup", "doctor", "install", "uninstall", "dashboard", "token", "update"])
+    a, rest = ap.parse_known_args()
+    if a.cmd is None:
+        ap.print_help()
+        return 0
+    if a.cmd == "setup":
+        return setup()
+    if a.cmd == "doctor":
+        return 0 if doctor() else 1
+    if a.cmd == "install":
+        return install() or 0
+    if a.cmd == "uninstall":
+        return uninstall() or 0
+    if a.cmd == "dashboard":
+        run_script("dashboard.py", *(rest or ["--root", os.getcwd()]))
+    if a.cmd == "token":
+        run_script("team.py", "token", *(rest or ["--root", os.getcwd()]))
+    if a.cmd == "update":
+        if not (ROOT / ".git").exists():
+            sys.exit("not a git checkout; update with: npm i -g @dexterhere/tusk@latest")
+        subprocess.run(["git", "-C", str(ROOT), "pull", "--ff-only"], check=True)
+        return install() or 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

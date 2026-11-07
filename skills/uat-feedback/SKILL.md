@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # /uat-feedback: one precise report for fix agents
 
-`S=${UAT_HOME:-$HOME/Work/uat}`. Caveman chat; the report is normal prose.
+`S=${UAT_HOME:-$HOME/.tusk}`. Caveman chat; the report is normal prose.
 
 ## 1. Make sure the data is current
 ```

@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # /uat-plan: business logic -> rules ledger -> charters
 
-`S=${UAT_HOME:-$HOME/Work/uat}`. Requires `.uat/state.json` phase `initialized`. Read-only on source. Caveman chat; files normal prose.
+`S=${UAT_HOME:-$HOME/.tusk}`. Requires `.uat/state.json` phase `initialized`. Read-only on source. Caveman chat; files normal prose.
 The hard part of testing is knowing what "correct" means. Every charter must point at rules with sources, or testers will file false bugs.
 
 ## 1. Orient

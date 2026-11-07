@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # /uat-init: size the swarm, ask, build the UAT environment
 
-`S=${UAT_HOME:-$HOME/Work/uat}`. All state lives in `<repo>/.uat/`. Chat in caveman style; files you write stay normal prose.
+`S=${UAT_HOME:-$HOME/.tusk}`. All state lives in `<repo>/.uat/`. Chat in caveman style; files you write stay normal prose.
 You are the Elephant: you hold context and decide. Testers are blind. Test-only: you never change the user's source here.
 
 ## 0. Where does UAT run? (ask first, AskUserQuestion)

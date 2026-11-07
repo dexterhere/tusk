@@ -1,0 +1,12 @@
+{
+  "name": "@dexterhere/tusk",
+  "version": "0.1.0",
+  "description": "Tusk: user-acceptance testing by a herd of AI agents. Installs the /uat commands for Claude Code.",
+  "license": "MIT",
+  "repository": {"type": "git", "url": "git+https://github.com/dexterhere/tusk.git"},
+  "bin": {"tusk": "bin/tusk.js"},
+  "os": ["linux"],
+  "files": ["bin", "scripts", "skills", "agents", "resources", "web", "docs", "uat.defaults.json", "README.md", "LICENSE", "SECURITY.md"],
+  "engines": {"node": ">=18"},
+  "keywords": ["uat", "testing", "ai-agents", "claude-code", "qa"]
+}
