@@ -217,7 +217,7 @@ def stage(r, cfg):
     if w.exists():
         shutil.rmtree(w)
     g = subprocess.run(["git", "-C", str(r), "ls-files", "-co", "--exclude-standard", "-z"], capture_output=True)
-    if g.returncode:
+    if g.returncode or not g.stdout.strip():          # not a repo, or everything here is ignored by an outer repo
         shutil.copytree(r, w, ignore=ignore_fn, symlinks=True)
         return
     for rel in filter(None, g.stdout.decode(errors="replace").split("\0")):

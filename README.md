@@ -1,24 +1,61 @@
-# uat-swarm
+# UAT Swarm
 
-Cheap-model tester swarm that tries to break a system and writes a fix-ready report.
-Inspired by EGM (fresh-context reviewers + a context-holding orchestrator), applied to testing.
+A swarm of cheap, blind tester agents (Claude Haiku, Codex, OpenCode free models) tries to break a system. A script, not a model, decides what is real. Every
+confirmed result lands in a fix queue; fixes start only after a human approves them.
+
+## Where it runs
+
+`/uat-init` asks first:
+
+| Choice | What happens |
+|---|---|
+| **This computer** | App copies, tools, tester CLIs and replay run locally. |
+| **Remote host over SSH** (VPS, lab box, spare laptop) | The workspace, app copies, tools, tester CLIs and replay run on the host. Orchestrator, dashboard and reports stay here; allowlisted results are mirrored back. Needs only `ssh`, `rsync`, `python3`, `bwrap` on the host, key auth, and each agent CLI logged in there. |
+
+Swarm size is bounded by the machine that runs the tests (`scripts/hostinfo.py`), not by the one you type on.
+
+## Commands
 
 | Command | Does |
 |---|---|
-| `/uat-init` | Scan repo, recommend swarm size + free tools, ask questions, build scrubbed UAT env in `.uat/` |
-| `/uat-plan` | graphify + jg, extract business rules (the oracle) with sources, static/coverage leads, charters, user approves |
-| `/uat-execute` | Adaptive waves of blind testers (Claude Haiku, Codex luna, OpenCode free). Script validates, replays 3x, dedupes |
-| `/uat-feedback` | Verifier judges only disputed clusters; builds `report.md`, `findings.json`, `junit.xml`, pins regression tests |
-| `/uat-fix` | Worktree per bug, author != reviewer, proven by the pinned repro + full regression; never pushes unasked |
-| `/uat-status` | Status, ledger, resume, `down`, `clean` |
+| `/uat` | Status, starts the dashboard, routes to the next stage |
+| `/uat-init` | Choose where to run, scan the repo, verify model names, build the scrubbed environment and lanes |
+| `/uat-plan` | Extract business rules (the oracle) with sources, make charters, user approves |
+| `/uat-execute` | Waves of testers, one sandboxed lane each; validate, replay, dedupe after every wave |
+| `/uat-feedback` | Verifier judges only disputed clusters; report, JUnit, pinned regression repros, fix queue |
+| `/uat-fix` | Fix agents work only on items the user approved; proven by replay |
+| `/uat-status` | Ledger, resume, `down`, `clean` |
 
-Key ideas: findings are executable repros (exit non-zero = bug, 0 = fixed); a script, not a model, decides real vs flaky vs false;
-test-only scope is enforced by sandbox + git tamper check; swarm size is computed, 9 is only the reference.
+`scripts/swarm.py` is the deterministic wave runner (used for calibration and unattended runs). `scripts/dashboard.py` serves the live page.
 
-Layout: `skills/` (commands), `agents/` (personas), `resources/` (schema, tool catalog, brief templates), `scripts/` (stdlib Python), `tests/` (demo app with 5 seeded bugs).
-Config: `uat.defaults.json`, overridden per project by `<repo>/.uat/uat.json`.
+## Live dashboard
 
-Test: `python3 -m unittest discover -s tests -v`
-Calibrate a model: run the swarm against `tests/demo_app` (start: `python3 tests/demo_app/app.py 8080`, rules in `rules.json`), then
-`python3 scripts/calibrate.py --seeded tests/demo_app/seeded_bugs.json`.
-Install: `ln -s <this>/skills/uat-* ~/.claude/skills/`
+`python3 scripts/dashboard.py --root .` then open the URL it prints (the `#token` part is the approval token and is never served over HTTP).
+Four tabs: **Live** (each agent as a pet with a label popup, who orchestrates, what each is doing now, rules under test), **Graph** (orchestrator, agents, charters,
+rules, findings sized by severity), **Findings** (severity bars, new clusters per round, cluster table), **Fixes** (queue with Approve / Reject).
+
+## How trust works
+
+- **Lanes.** One tester = one lane: its own copy of the workspace, its own port, its own app process. Testers never share state, so a failure is theirs to explain.
+- **Sandbox.** Agent CLIs, replayed repro commands and the app itself run under bubblewrap: read-only system allowlist (no `/run`, no docker socket), empty `$HOME`
+  plus a throwaway copy of only the credential files that CLI needs, lane workspace read-only, one writable agent dir. Missing bubblewrap = refuse to run
+  (`sandbox.require`), never silently weaker. **Network is open** (the tester must reach the target and its model API); a hostile tester could therefore send its
+  throwaway credential copy out. Use scoped or short-lived tokens for tester CLIs.
+- **Tamper check** after every agent: edits to the system under test are reverted and that agent's findings quarantined. Same for every family.
+- **Trusted snapshots.** Before replay, each finding and its declared repro files are copied out of the agent-writable directory. Replay, dedupe, report and the fix
+  queue use the copy and its digest. Verdicts, logs and quarantine live outside the agent dir.
+- **Replay** runs the repro in a fresh scratch dir, in a clean lane: exit 1 = bug present, 0 = correct, anything else = the repro is broken (`error`). Replay proves
+  repeatability, not truth, so a repro that never touches the target is sent to the verifier. Concurrency findings get 12 stress runs; a race seen by one agent that
+  replay cannot reproduce is kept as `watch`, not dropped. Flaky results always go to the verifier.
+- **Dedupe** never merges findings whose rule ids differ; weak title matches need 0.8 overlap, same area and category. Each cluster records why it merged.
+  Agent identity comes from the directory and the orchestrator's label, not from the finding.
+- **Fix queue.** Every accepted result is `proposed`. Approval is bound to the finding's content digest; if it changes, the item is `proposed` again.
+- **SSH host** is trusted to execute, not to decide: only agent findings, events, replays and the ledger are mirrored back (allowlist, no symlinks, normalised
+  permissions); clusters, verdicts, plan, fix queue and report are never overwritten from the host.
+
+## Layout
+
+`skills/` commands · `agents/` personas · `resources/` schema, tool catalog, briefs · `scripts/` stdlib Python · `web/` dashboard page · `tests/` unit tests and a demo app with 5 seeded bugs · `calibration/` recorded model runs.
+
+Config: `uat.defaults.json`, overridden by `<repo>/.uat/uat.json`. Test: `python3 -m unittest discover -s tests -v`.
+Install: `for s in skills/*; do ln -sfn "$PWD/$s" ~/.claude/skills/$(basename $s); done`

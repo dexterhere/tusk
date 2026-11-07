@@ -13,6 +13,7 @@ Exit: 0 ok, 1 agent failed, 2 tamper.
 import argparse
 import json
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -49,7 +50,8 @@ def last_line(log):
 def run(cmd, cwd, env, timeout, log, on_beat):
     """Run cmd, kill the whole process group on timeout, call on_beat() every 5 s."""
     with open(log, "wb") as lf:
-        p = subprocess.Popen(cmd, cwd=cwd, env=env, stdout=lf, stderr=subprocess.STDOUT, start_new_session=True)
+        p = subprocess.Popen(cmd, cwd=cwd, env=env, stdin=subprocess.DEVNULL, stdout=lf, stderr=subprocess.STDOUT, start_new_session=True,
+                             preexec_fn=sandbox.limits)
         end, beat = time.time() + timeout, 0
         while p.poll() is None:
             if time.time() > end:
@@ -74,6 +76,8 @@ def main():
     ap.add_argument("--ping", action="store_true")
     ap.add_argument("--cmd", help="test hook: run this command line instead of the CLI")
     a = ap.parse_args()
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,40}", a.id):
+        sys.exit(f"invalid agent id {a.id!r}")
     root = Path(a.root).resolve()
     cfg = config(root)
     d = udir(root) / "agents" / a.id
@@ -109,7 +113,9 @@ def main():
                                                 net=cfg["sandbox"]["network"]["agent"], writable=wr)
         rc = run(cmd, d, env, timeout, log, beat)
         out = log.read_text(errors="ignore")
-        if rc == 0 and (not a.ping or "OK" in out):
+        if a.ping and rc == 0 and "OK" not in out:
+            rc = 3                                     # process ran but did not answer: not a working model
+        if rc == 0:
             break
     secs = round(time.time() - t0, 1)
     shutil.rmtree(tmp_home, ignore_errors=True) if tmp_home else None   # credentials copy never outlives the run

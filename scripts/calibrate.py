@@ -11,7 +11,7 @@ from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from uatlib import finding_files, jload, replay_path, udir  # noqa: E402
+from uatlib import agent_meta, finding_files, jload, replay_path, trusted, udir  # noqa: E402
 
 
 def main():
@@ -23,9 +23,12 @@ def main():
     seeded = {b["rule_id"] for b in jload(a.seeded, {"bugs": []})["bugs"]}
     stats = defaultdict(lambda: {"found": set(), "total": 0, "true": 0})
     for f in finding_files(r):
-        o = jload(f, {})
+        o, _ = trusted(r, f)                       # snapshot, never the live agent dir
+        if not o:
+            continue
+        m = agent_meta(r, f.parent.parent.name)    # identity from the orchestrator's label
         rp = jload(replay_path(r, f), {}).get("status")
-        s = stats[(o.get("family"), o.get("model"))]
+        s = stats[(m["family"], m["model"])]
         s["total"] += 1
         if o.get("rule_id") in seeded and rp == "confirmed":
             s["true"] += 1

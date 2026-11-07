@@ -123,16 +123,17 @@
     },
     "agent_home": {
       "claude": [
-        ".claude",
-        ".claude.json"
+        ".claude.json",
+        ".claude/.credentials.json",
+        ".claude/settings.json"
       ],
       "codex": [
-        ".codex"
+        ".codex/auth.json",
+        ".codex/config.toml"
       ],
       "opencode": [
-        ".config/opencode",
-        ".local/share/opencode",
-        ".cache/opencode"
+        ".local/share/opencode/auth.json",
+        ".config/opencode/opencode.json"
       ]
     },
     "extra_ro": []
