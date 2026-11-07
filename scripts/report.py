@@ -16,18 +16,13 @@ from pathlib import Path
 from xml.sax.saxutils import escape, quoteattr
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from uatlib import CTRL, SEV, clean, jdump, jload, udir  # noqa: E402
+from uatlib import CTRL, SEV, clean, fence, jdump, jload, udir  # noqa: E402
 
 def mdesc(text):
     """Single-line agent text into Markdown: no markup, links or HTML can come through."""
     return re.sub(r"([\\`*_{}\[\]<>()#+!|~])", r"\\\1", text)
 
 
-def fence(text):
-    """Fenced code block whose fence is longer than any backtick run inside, control characters removed."""
-    text = CTRL.sub("", text)
-    n = max([3] + [len(m) + 1 for m in re.findall(r"`+", text)])
-    return f"{'`' * n}\n{text}\n{'`' * n}"
 
 
 PENALTY = {"blocker": 25, "major": 10, "minor": 3, "nit": 1}

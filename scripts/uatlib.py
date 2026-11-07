@@ -379,3 +379,10 @@ def coverage(r):
                     "confidence": clean(rule.get("confidence"), 12), "status": st, "agents": {clean(a, 40): v for a, v in res.items()},
                     "charters": [c["id"] for c in plan.get("charters", []) if rid in c.get("rule_ids", [])], "clusters": [c["cid"] for c in hit]})
     return out
+
+
+def fence(text):
+    """Fenced code block whose fence is longer than any backtick run inside, control characters removed."""
+    text = CTRL.sub("", str(text))
+    n = max([3] + [len(m) + 1 for m in re.findall(r"`+", text)])
+    return f"{'`' * n}\n{text}\n{'`' * n}"
