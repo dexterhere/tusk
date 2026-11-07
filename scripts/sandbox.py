@@ -43,11 +43,11 @@ def clean_env(cfg, extra=None, path_prepend=()):
 SYSTEM = ("usr", "etc", "opt", "lib", "lib32", "lib64", "bin", "sbin")
 
 
-def agent_home(cfg, family):
+def agent_home(cfg, family, files=None):
     """Throwaway HOME for one agent run, in a host-only temp dir (the agent never sees this path and cannot write to it).
     Copies only the credential/config files its CLI needs. Caller removes it with shutil.rmtree after the run."""
     dest = Path(tempfile.mkdtemp(prefix="uat-home-"))
-    for rel in cfg["sandbox"]["agent_home"].get(family or "", []):
+    for rel in (files if files is not None else cfg["sandbox"]["agent_home"].get(family or "", [])):
         src = Path.home() / rel
         if src.is_symlink() or not src.is_file():
             continue

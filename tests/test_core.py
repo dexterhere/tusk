@@ -293,6 +293,13 @@ class Hardening(unittest.TestCase):
                 self.assertNotIn("TOKEN", html)                                     # no write side, so no token at all
                 self.assertIn("script-src 'nonce-", page.headers["Content-Security-Policy"])
                 self.assertEqual(page.headers["X-Frame-Options"], "DENY")
+                self.assertIn(b"UAT_ICONS", urllib.request.urlopen(f"http://127.0.0.1:{port}/vendor/iconoir.js").read())
+                with self.assertRaises(urllib.error.HTTPError) as e:
+                    urllib.request.urlopen(f"http://127.0.0.1:{port}/vendor/../uat.py")
+                self.assertEqual(e.exception.code, 404)
+                stream = urllib.request.urlopen(f"http://127.0.0.1:{port}/api/stream", timeout=5)
+                self.assertTrue(stream.readline().startswith(b"data: "))                 # live push sends the current state fingerprint at once
+                stream.close()
                 req = urllib.request.Request(f"http://127.0.0.1:{port}/api/state", headers={"Host": "evil.example"})
                 with self.assertRaises(urllib.error.HTTPError) as e:
                     urllib.request.urlopen(req)

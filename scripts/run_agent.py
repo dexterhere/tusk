@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run one tester agent headlessly (claude / codex / opencode) inside its own lane and sandbox.
+"""Run one agent headlessly (any harness in scripts/harness.py: claude, codex, opencode, presets, or your own) inside its own lane and sandbox.
 
 Every family goes through this one path, so confinement, timeout, tamper check, ledger and live events are identical for all:
   1. reset the agent's lane (own workspace copy + own app port)
@@ -23,20 +23,10 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import harness  # noqa: E402
 import sandbox  # noqa: E402
 from uat_env import Lane  # noqa: E402
 from uatlib import HOME, QUOTA_RE, config, emit, finding_files, mark_exhausted, udir  # noqa: E402
-
-
-def build(family, model, agent_dir, prompt, confined):
-    if family == "codex":
-        # our bubblewrap already confines it; codex's own nested sandbox would fail inside it
-        return ["codex", "exec", "-m", model, "-s", "danger-full-access" if confined else "workspace-write", "-C", str(agent_dir), "--skip-git-repo-check", "--ephemeral", "--json", "-o", str(agent_dir / "last.txt"), prompt]
-    if family == "opencode":
-        return ["opencode", "run", "-m", model, "--format", "json", "--auto", prompt]
-    if family == "claude":
-        return ["claude", "-p", prompt, "--model", model, "--permission-mode", "acceptEdits", "--allowedTools", "Bash Read Write Edit Glob Grep"]
-    raise SystemExit(f"unknown family {family}")
 
 
 def last_line(log):
@@ -47,11 +37,17 @@ def last_line(log):
         return ""
 
 
-def run(cmd, cwd, env, timeout, log, on_beat):
+def run(cmd, cwd, env, timeout, log, on_beat, stdin_text=None):
     """Run cmd, kill the whole process group on timeout, call on_beat() every 5 s."""
     with open(log, "wb") as lf:
-        p = subprocess.Popen(cmd, cwd=cwd, env=env, stdin=subprocess.DEVNULL, stdout=lf, stderr=subprocess.STDOUT, start_new_session=True,
+        p = subprocess.Popen(cmd, cwd=cwd, env=env, stdin=subprocess.PIPE if stdin_text is not None else subprocess.DEVNULL, stdout=lf, stderr=subprocess.STDOUT, start_new_session=True,
                              preexec_fn=sandbox.limits)
+        if stdin_text is not None:
+            try:
+                p.stdin.write(stdin_text.encode())
+                p.stdin.close()
+            except OSError:
+                pass
         end, beat = time.time() + timeout, 0
         while p.poll() is None:
             if time.time() > end:
@@ -80,8 +76,13 @@ def main():
         sys.exit(f"invalid agent id {a.id!r}")
     root = Path(a.root).resolve()
     cfg = config(root)
+    if not a.cmd:
+        harness.spec(cfg, a.family)                   # unknown harness: stop here with the list of known ones
     d = udir(root) / "agents" / a.id
-    (d / "findings").mkdir(parents=True, exist_ok=True)
+    if not a.ping:
+        (d / "findings").mkdir(parents=True, exist_ok=True)
+    else:
+        d.mkdir(parents=True, exist_ok=True)
     logdir = udir(root) / "logs"
     logdir.mkdir(exist_ok=True)
     log = logdir / f"{a.id}.log"                       # outside the agent-writable dir: the agent cannot swap it for a symlink
@@ -104,20 +105,20 @@ def main():
         emit(root, a.id, "agent_status", now=last_line(log), findings=n, secs=round(time.time() - t0))
 
     rc, used, dead = 1, None, []
-    tmp_home = None if a.ping else sandbox.agent_home(cfg, a.family)
+    tmp_home = None if a.ping else sandbox.agent_home(cfg, a.family, harness.home_files(cfg, a.family))
     for model in a.model.split(","):
         state["model"] = used = model
-        inner = a.cmd.split() if a.cmd else build(a.family, model, d, prompt, lvl == "bwrap")
+        inner, stdin_text = (a.cmd.split(), None) if a.cmd else harness.command(cfg, a.family, model, d, prompt, lvl == "bwrap")
         wr = [lane.ws / p for p in lane.tracked()]
         cmd = inner if a.ping else sandbox.wrap(cfg, inner, cwd=d, ws=lane.ws, tools=udir(root) / "tools", toolkit=HOME, home=tmp_home,
                                                 net=cfg["sandbox"]["network"]["agent"], writable=wr)
-        rc = run(cmd, d, env, timeout, log, beat)
+        rc = run(cmd, d, env, timeout, log, beat, stdin_text)
         out = log.read_text(errors="ignore")
         if a.ping and rc == 0 and "OK" not in out:
             rc = 3                                     # process ran but did not answer: not a working model
         if rc == 0:
             break
-        if QUOTA_RE.search(out[-4000:]):               # provider says out of quota: a dead model, not a clean result
+        if harness.quota_re(cfg, a.family, QUOTA_RE).search(out[-4000:]):               # provider says out of quota: a dead model, not a clean result
             m = re.search(r'"retryAfterMs":\s*(\d+)', out)
             mark_exhausted(root, model, int(m.group(1)) / 1000 if m else 3600)
             dead.append(model)

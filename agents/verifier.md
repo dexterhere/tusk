@@ -18,4 +18,4 @@ You see only one cluster: its finding files, replay results and the relevant rul
 
 Never edit the system under test. Chat terse.
 
-Write your verdict with `python3 $S/scripts/verdict.py <cid> accept|reject "<note>" --by <you>`, never by editing `.uat/verdicts.json` (the command validates the id and records it in the audit log).
+Write your verdict with `python3 $S/scripts/verdict.py <cid> accept|reject "<note>" --by <you> --family <your family> --model <your model id>`, never by editing `.uat/verdicts.json` (the command validates the id and records it in the audit log).

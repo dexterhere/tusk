@@ -126,3 +126,37 @@ class KB(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Tags(unittest.TestCase):
+    def test_tags_and_trace_follow_one_issue_end_to_end(self):
+        with tempfile.TemporaryDirectory() as t:
+            r = Path(t)
+            c = cluster(r, "C-aaaaaaaaaaaa", "Zero qty", "app/cart.py")
+            c["agents"] = ["A4"]
+            project(t, [c], [fqitem("C-aaaaaaaaaaaa", "approved")])
+            (r / ".uat/meta").mkdir()
+            (r / ".uat/meta/A4.json").write_text(json.dumps({"id": "A4", "family": "opencode", "model": "m-planned", "lens": "breaker", "lane": "L2"}))
+            (r / ".uat/ledger.jsonl").write_text(json.dumps({"id": "A4", "model": "m-fallback", "ping": False}) + "\n")
+            kb.ingest(r)
+            kb.fixed(r, "C-aaaaaaaaaaaa", "uat-fix/a", ["app/cart.py"])
+            tr = kb.trace(r, "C-aaaaaaaaaaaa")
+            self.assertEqual(tr["found_by"][0]["m"], "m-fallback")           # the model that really answered, not the planned one
+            self.assertIn("model:m-fallback", tr["tags"])
+            self.assertIn("area:cart", tr["tags"])
+            self.assertEqual([x["status"] for x in tr["timeline"]][:2], ["open", "approved"])
+            self.assertEqual(tr["fixes"][0]["files"], ["app/cart.py"])
+            ft = kb.trace(r, "app/cart.py")
+            self.assertEqual(ft["issues"][0]["cid"], "C-aaaaaaaaaaaa")
+            self.assertIn("dir:app", ft["tags"])
+            self.assertTrue(kb.query(r, "model:m-fallback"))
+
+    def test_verifier_acceptance_enters_the_graph(self):
+        with tempfile.TemporaryDirectory() as t:
+            r = Path(t)
+            c = cluster(r, "C-aaaaaaaaaaaa", "Disputed", "app/x.py")
+            c["verdict"] = "needs_verifier"
+            project(t, [c])
+            self.assertNotIn("i:C-aaaaaaaaaaaa", kb.ingest(r)["nodes"])
+            (r / ".uat/verdicts.json").write_text(json.dumps({"C-aaaaaaaaaaaa": {"verdict": "accept", "by": "V1"}}))
+            self.assertIn("i:C-aaaaaaaaaaaa", kb.ingest(r)["nodes"])

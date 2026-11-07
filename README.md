@@ -75,3 +75,7 @@ Install: `for s in skills/*; do ln -sfn "$PWD/$s" ~/.claude/skills/$(basename $s
 ## Audit log integrity
 
 `.uat/audit.jsonl` is hash-chained and its latest head is also kept in `~/.local/state/uat/` (override with `UAT_STATE_DIR`). `python3 scripts/audit.py verify` checks both. A deleted, truncated or rewritten log fails verification. If you wipe `.uat` on purpose, run `python3 scripts/audit.py reset` once. This is not a MAC: the same OS user can alter both copies. Events recorded on an SSH host (`events.host.jsonl`) are not part of the chain.
+
+## Journey, agents and assets
+
+The full cycle, what is recorded at each step, and how to plug in any agent harness: `docs/JOURNEY.md`. Agent avatars are DiceBear "Gaze" (CC0) and icons are Iconoir (MIT), both vendored in `web/vendor/` (see the README there): the dashboard makes no requests to the internet.

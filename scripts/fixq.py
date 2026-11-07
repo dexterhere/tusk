@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from uatlib import SEV, config, emit, jdump, jload, udir  # noqa: E402
+from uatlib import SEV, config, effective_verdict, emit, jdump, jload, udir  # noqa: E402
 
 STATES = ("proposed", "approved", "fixing", "proven", "failed", "needs_human", "rejected", "stale")
 FIXABLE = ("accept",)
@@ -31,9 +31,8 @@ def sync(r):
     """Add new clusters as `proposed`; keep the state of known ones; mark ones that no longer reproduce as stale."""
     cfg = config(r)
     have = {i["cid"]: i for i in load(r)}
-    verdicts = jload(udir(r) / "verdicts.json", {})
     for c in jload(udir(r) / "clusters.json", []):
-        v = verdicts.get(c["cid"], {}).get("verdict") or c["verdict"]
+        v = effective_verdict(r, c)
         if v not in FIXABLE:
             continue
         if c["kind"] == "suboptimal" and not cfg["fix"]["suboptimal_queue"]:

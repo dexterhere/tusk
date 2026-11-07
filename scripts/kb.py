@@ -19,7 +19,9 @@ Issue status: open approved fixing fixed verified regressed wontfix not_seen
   kb.py fixed C --branch B [--files F..]   record a proven fix (touched files from git when --files is omitted)
   kb.py link C --files F..          say which code an issue lives in (when the tester was blind to it), so impact can see shared code
   kb.py retest [--run]              list issues to re-test next run; --run replays them and settles verified / regressed
-  kb.py query TEXT | digest | show
+  kb.py trace C|FILE                complete track-down: who found it, status changes, fix and files, re-tests
+  kb.py query TEXT                  matches labels and tags (tag:area:cart, model:haiku, status:regressed ...)
+  kb.py digest | show
 """
 import argparse
 import json
@@ -30,7 +32,7 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from uatlib import SEV, clean, config, emit, fence, jload, udir  # noqa: E402
+from uatlib import SEV, agent_identity, clean, config, effective_verdict, emit, fence, jload, udir  # noqa: E402
 
 DONE = ("fixed", "verified")
 LIVE = ("open", "approved", "fixing", "regressed")
@@ -75,7 +77,7 @@ def node(g, nid, **kw):
 
 def set_status(n, status, run, note=""):
     if n.get("status") != status:
-        n.setdefault("hist", []).append([run, status, clean(note, 80)])
+        n.setdefault("hist", []).append([run, status, clean(note, 80), round(time.time())])
         n["hist"] = n["hist"][-HIST_MAX:]
         n["status"] = status
         if status in DONE:
@@ -95,7 +97,7 @@ def ingest(r, new_run=True):
     if new_run:
         g["runs"] += 1
     run = g["runs"]
-    clusters = {c["cid"]: c for c in jload(udir(r) / "clusters.json", []) if c.get("verdict") == "accept"}
+    clusters = {c["cid"]: c for c in jload(udir(r) / "clusters.json", []) if effective_verdict(r, c) == "accept"}
     fq = {i["cid"]: i for i in jload(udir(r) / "fixqueue.json", [])}
     plan = jload(udir(r) / "plan" / "plan.json", {})
     for rule in plan.get("rules", [])[:300]:
@@ -108,6 +110,7 @@ def ingest(r, new_run=True):
         n = node(g, nid, t="issue", label=clean(c["title"], 100), sev=c["severity"] if c["severity"] in SEV else "nit", area=clean(c["area"], 60),
                  exp=clean(lead.get("expected"), 160), cat=clean(c.get("category"), 20), last=run)
         n.setdefault("first", run)
+        n["by"] = [{"a": clean(i["id"], 40), "f": i["family"], "m": i["model"], "l": i["lens"]} for i in (agent_identity(r, x) for x in c.get("agents", [])[:6])]
         if new:
             set_status(n, "open", run, "found")
         seen_at = os.path.getmtime(r / c["files"][0]) if c.get("files") and (r / c["files"][0]).exists() else 0
@@ -142,6 +145,57 @@ def ingest(r, new_run=True):
             set_status(n, "not_seen", run, "not found in the latest run")
     save(r, g)
     return g
+
+
+def tags_of(g, nid):
+    """Short searchable labels, derived on the fly (not stored): sev:, cat:, area:, rule:, status:, agent:, model:, fix:, dir:, ext:."""
+    n = g["nodes"][nid]
+    t = [f"type:{n['t']}"]
+    if n["t"] == "issue":
+        t += [f"sev:{n.get('sev', '')}", f"status:{n.get('status', '')}", f"cat:{n.get('cat', '')}", f"area:{n.get('area', '')}"]
+        t += [f"agent:{b['a']}" for b in n.get("by", [])] + [f"model:{b['m']}" for b in n.get("by", []) if b.get("m")] + [f"family:{b['f']}" for b in n.get("by", []) if b.get("f")]
+        for a, rel, b in g["edges"]:
+            if a == nid and rel == "violates":
+                t.append(f"rule:{g['nodes'][b]['label']}")
+            elif a == nid and rel == "in":
+                t.append(f"file:{g['nodes'][b]['label']}")
+            elif b == nid and rel == "resolves":
+                t.append(f"fix:{g['nodes'][a]['label']}")
+    elif n["t"] == "file":
+        p = n["label"]
+        t += [f"dir:{p.rsplit('/', 1)[0] if '/' in p else '.'}", f"ext:{p.rsplit('.', 1)[-1] if '.' in p else 'none'}"]
+        for a, rel, b in g["edges"]:
+            if b == nid and rel == "in" and a in g["nodes"]:
+                t += [f"area:{g['nodes'][a].get('area', '')}", f"status:{g['nodes'][a].get('status', '')}"]
+    elif n["t"] == "fix":
+        t.append(f"issue:{n.get('cid', '')}")
+    elif n["t"] == "rule":
+        t.append(f"rule:{n['label']}")
+    return sorted({x for x in t if not x.endswith(":")})
+
+
+def trace(r, target):
+    """Complete track-down for an issue id (C-...) or a file path: who found it, every status change, the fix and its files, re-tests."""
+    g = load(r)
+    nid = f"i:{target}" if f"i:{target}" in g["nodes"] else f"f:{target}" if f"f:{target}" in g["nodes"] else None
+    if not nid:
+        return None
+    n = g["nodes"][nid]
+    out = {"id": nid, "label": n["label"], "type": n["t"], "tags": tags_of(g, nid), "timeline": [], "issues": [], "fixes": []}
+    if n["t"] == "issue":
+        out["found_by"] = n.get("by", [])
+        out["timeline"] = [{"run": h[0], "status": h[1], "note": h[2], "ts": h[3] if len(h) > 3 else 0} for h in n.get("hist", [])]
+        out["fixes"] = [{"branch": g["nodes"][a]["label"], "files": sorted(g["nodes"][b]["label"] for x, rel, b in g["edges"] if x == a and rel == "touches")} for a, rel, b in g["edges"] if b == nid and rel == "resolves"]
+        out["suspected_cause"] = [g["nodes"][a]["label"] for a, rel, b in g["edges"] if b == nid and rel == "suspected_cause"]
+    else:
+        for a, rel, b in g["edges"]:
+            if b == nid and rel == "in":
+                i = g["nodes"][a]
+                out["issues"].append({"cid": a[2:], "title": i["label"], "sev": i.get("sev"), "status": i.get("status"), "found_by": i.get("by", [])})
+            if b == nid and rel == "touches":
+                out["fixes"].append({"branch": g["nodes"][a]["label"], "resolves": g["nodes"][a].get("cid", "")})
+        out["issues"].sort(key=lambda x: (SEV.get(x["sev"], 9), x["cid"]))
+    return out
 
 
 def issues(g):
@@ -340,22 +394,23 @@ def digest(r, g=None):
 def query(r, text):
     g = load(r)
     words = text.lower().split()
-    return [(k, v) for k, v in g["nodes"].items() if all(w in (v.get("label", "") + " " + v.get("s", "") + " " + v.get("area", "") + " " + k).lower() for w in words)][:30]
+    return [(k, v) for k, v in g["nodes"].items() if all(w in (v.get("label", "") + " " + v.get("s", "") + " " + v.get("area", "") + " " + k + " " + " ".join(tags_of(g, k))).lower() for w in words)][:30]
 
 
 def view(r):
     """Bounded, cleaned copy for the dashboard."""
     g = load(r)
     keep = {"t", "label", "sev", "status", "area", "s", "first", "last", "cid"}
-    nodes = [{"id": clean(k, 200), **{a: (clean(b, 160) if isinstance(b, str) else b) for a, b in v.items() if a in keep}} for k, v in list(g["nodes"].items())[:1500]]
+    nodes = [{"id": clean(k, 200), **{a: (clean(b, 160) if isinstance(b, str) else b) for a, b in v.items() if a in keep}, "tags": [clean(x, 120) for x in tags_of(g, k)][:40],
+              "by": [{x: clean(y, 60) for x, y in b.items()} for b in v.get("by", [])]} for k, v in list(g["nodes"].items())[:1500]]
     for n in nodes:
-        n["hist"] = [[h[0], clean(h[1], 20), clean(h[2], 80)] for h in g["nodes"][n["id"]].get("hist", [])[-HIST_MAX:]] if n["t"] == "issue" else []
+        n["hist"] = [[h[0], clean(h[1], 20), clean(h[2], 80), h[3] if len(h) > 3 else 0] for h in g["nodes"][n["id"]].get("hist", [])[-HIST_MAX:]] if n["t"] == "issue" else []
     return {"runs": g["runs"], "nodes": nodes, "edges": [[clean(a, 200), clean(b, 20), clean(c, 200)] for a, b, c in g["edges"][:5000]]}
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["ingest", "impact", "handoff", "fixed", "link", "retest", "query", "digest", "show"])
+    ap.add_argument("cmd", choices=["ingest", "impact", "handoff", "fixed", "link", "retest", "query", "trace", "digest", "show"])
     ap.add_argument("arg", nargs="?", default="")
     ap.add_argument("--root", default=os.getcwd())
     ap.add_argument("--cid")
@@ -387,6 +442,9 @@ def main():
     elif a.cmd == "query":
         for k, v in query(r, a.arg):
             print(k, v.get("status", ""), v.get("label", ""))
+    elif a.cmd == "trace":
+        t = trace(r, a.arg)
+        print(json.dumps(t, indent=1) if t else f"{a.arg} is not in the graph")
     elif a.cmd == "digest":
         digest(r)
         print((kbdir(r) / "DIGEST.md").read_text())

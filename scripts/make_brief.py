@@ -12,7 +12,7 @@ from pathlib import Path
 from string import Template
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from uatlib import config, jdump, jload, lane_url, layout, meta_path, udir  # noqa: E402
+from uatlib import config, emit, jdump, jload, lane_url, layout, meta_path, udir  # noqa: E402
 
 
 def main():
@@ -51,6 +51,8 @@ def main():
     if rv:      # behaviour that was reported and fixed earlier: look at it first, no code locations given (testers stay blind)
         text += "\n\n## Previously reported and fixed: re-verify these first\nIf one is broken again, report it as a normal finding.\n" + "\n".join(rv) + "\n"
     (d / "brief.md").write_text(text)
+    emit(r, "orchestrator", "assign", to=a.agent, kind="charter", ref=ch["id"], area=ch["area"], lens=ch["lens"], family=a.family, model=a.model.split(",")[0], lane=a.lane,
+         note=f"test {len(ch.get('rule_ids', []))} rule(s) in {ch['area']} as a {ch['lens']}")
     print(d / "brief.md")
 
 

@@ -139,6 +139,30 @@ def agent_meta(r, agent):
     return {k: clean(m.get(k, ""), 60) for k in ("id", "family", "model", "lane", "charter", "area", "lens", "role")}
 
 
+def agent_identity(r, aid):
+    """Who an agent really was: plan-time label from meta, and the model that actually answered (the ledger row), since a fallback
+    model may have served the run. Never trusts anything inside the agent's own directory."""
+    m = agent_meta(r, aid)
+    used = ""
+    for ln in safe_read(udir(r) / "ledger.jsonl", tail=True).splitlines()[::-1]:
+        try:
+            row = json.loads(ln)
+        except ValueError:
+            continue
+        if row.get("id") == aid and not row.get("ping"):
+            used = clean(row.get("model", ""), 60)
+            break
+    m["planned_model"] = m.get("model", "")
+    m["model"] = used or m.get("model", "")
+    return m
+
+
+def effective_verdict(r, c, verdicts=None):
+    """A verifier's decision, when there is one, is the final word on a disputed cluster; otherwise the script's verdict stands."""
+    v = (verdicts if verdicts is not None else jload(udir(r) / "verdicts.json", {}) or {}).get(c.get("cid"), {})
+    return {"accept": "accept", "reject": "reject"}.get(v.get("verdict"), c.get("verdict", ""))
+
+
 # ---------------------------------------------------------------- events (feed the live dashboard)
 def emit(r, actor, type_, **data):
     """Append one event. One O_APPEND write per line. Host-side scripts write events.host.jsonl (UAT_EVENTS_FILE) so the SSH mirror
