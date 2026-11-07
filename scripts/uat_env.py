@@ -66,7 +66,9 @@ def guard(r, cfg):
 def ignore_fn(_dir, names):
     out = set()
     for n in names:
-        if n in COPY_IGNORE or (any(fnmatch.fnmatch(n, g) for g in SECRET_FILES) and n not in KEEP_FILES):
+        if os.path.islink(os.path.join(_dir, n)):        # never copy symlinks: they can point at anything outside the repo
+            out.add(n)
+        elif n in COPY_IGNORE or (any(fnmatch.fnmatch(n, g) for g in SECRET_FILES) and n not in KEEP_FILES):
             out.add(n)
     return out
 
@@ -217,7 +219,12 @@ def stage(r, cfg):
     if w.exists():
         shutil.rmtree(w)
     g = subprocess.run(["git", "-C", str(r), "ls-files", "-co", "--exclude-standard", "-z"], capture_output=True)
-    if g.returncode or not g.stdout.strip():          # not a repo, or everything here is ignored by an outer repo
+    if g.returncode or not g.stdout.strip():
+        # No git file list (not a repo, or everything is ignored by an outer repo). The denylist alone cannot know which files are
+        # ignored secrets, so this is opt-in per project, never silent.
+        if not cfg["env"]["allow_denylist_copy"]:
+            sys.exit("stage: git lists no files for this directory. Run /uat-init from the repo root, or set env.allow_denylist_copy=true to copy "
+                     "everything except secret-looking names (ignored files such as local .env variants WILL be copied).")
         shutil.copytree(r, w, ignore=ignore_fn, symlinks=True)
         return
     for rel in filter(None, g.stdout.decode(errors="replace").split("\0")):

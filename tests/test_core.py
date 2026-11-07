@@ -56,7 +56,7 @@ def mkroot(tmp, over=None):
     (root / ".uat").mkdir(exist_ok=True)
     port = free_port_block()
     cfg = {"env": {"base_port": port, "base_url": f"http://127.0.0.1:{port}", "health_url": f"http://127.0.0.1:{port}/", "health_timeout_s": 15,
-                   "start_cmd": "python3 demo_app/app.py {port}"}}
+                   "start_cmd": "python3 demo_app/app.py {port}", "allow_denylist_copy": True}}
     for k, v in (over or {}).items():
         cfg[k] = {**cfg.get(k, {}), **v}
     (root / ".uat" / "uat.json").write_text(json.dumps(cfg))
@@ -439,3 +439,13 @@ class Review(unittest.TestCase):
             self.assertTrue((ws / "app.py").exists())
             self.assertFalse((ws / ".npmrc").exists())
             self.assertFalse((ws / "local.env").exists())
+
+    def test_stage_fails_closed_without_git_listing(self):
+        with tempfile.TemporaryDirectory() as t:
+            (Path(t) / "app.py").write_text("x")
+            (Path(t) / "local.env").write_text("SECRET=1")
+            (Path(t) / ".uat").mkdir()
+            r = run("uat_env.py", "workspace", "--root", t)
+            self.assertNotEqual(r.returncode, 0)
+            self.assertIn("allow_denylist_copy", r.stderr)
+            self.assertFalse((Path(t) / ".uat/workspace/local.env").exists())

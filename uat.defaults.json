@@ -76,7 +76,8 @@
     "kind": "service",
     "base_port": 18080,
     "lane_setup_cmd": "",
-    "writable_paths": []
+    "writable_paths": [],
+    "allow_denylist_copy": false
   },
   "guard": {
     "safe_hosts": [
