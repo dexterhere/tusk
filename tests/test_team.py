@@ -164,3 +164,20 @@ class StaleVerdict(unittest.TestCase):
         for v in ({"verdict": "reject", "digest": "old"}, {"verdict": "reject"}):
             self.assertEqual(uatlib.effective_verdict(None, c, {"C-aaaaaaaaaaaa": v}), "needs_verifier")
         self.assertEqual(uatlib.effective_verdict(None, c, {"C-aaaaaaaaaaaa": {"verdict": "reject", "digest": "new"}}), "reject")
+
+
+class VerdictDigest(unittest.TestCase):
+    def run_v(self, r, *extra):
+        import subprocess
+        return subprocess.run([sys.executable, str(Path(uatlib.__file__).parent / "verdict.py"), "C-aaaaaaaaaaaa", "accept", "ok", "--root", str(r), *extra], capture_output=True, text=True)
+
+    def test_verdict_needs_the_digest_the_verifier_reviewed(self):
+        r = root()
+        (r / ".uat" / "clusters.json").write_text(json.dumps([{"cid": "C-aaaaaaaaaaaa", "digest": "cur"}]))
+        self.assertNotEqual(self.run_v(r).returncode, 0)                          # no digest
+        bad = self.run_v(r, "--digest", "stale")
+        self.assertNotEqual(bad.returncode, 0)
+        self.assertIn("evidence changed", bad.stderr)
+        self.assertFalse((r / ".uat" / "verdicts.json").exists())
+        self.assertEqual(self.run_v(r, "--digest", "cur").returncode, 0)
+        self.assertEqual(json.loads((r / ".uat" / "verdicts.json").read_text())["C-aaaaaaaaaaaa"]["digest"], "cur")

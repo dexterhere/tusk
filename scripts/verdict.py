@@ -21,6 +21,7 @@ def main():
     ap.add_argument("--by", default="verifier")
     ap.add_argument("--family", default="", help="agent family of the verifier (claude, codex, ...)")
     ap.add_argument("--model", default="", help="model id of the verifier")
+    ap.add_argument("--digest", required=True, help="the cluster's evidence digest as shown to the verifier (clusters.json 'digest')")
     ap.add_argument("--root", default=os.getcwd())
     a = ap.parse_args()
     r = Path(a.root).resolve()
@@ -28,7 +29,9 @@ def main():
         sys.exit(f"unknown cluster {a.cid}")
     v = jload(udir(r) / "verdicts.json", {})
     cl = next(c for c in jload(udir(r) / "clusters.json", []) if c["cid"] == a.cid)
-    v[a.cid] = {"digest": cl.get("digest", ""), "verdict": a.verdict, "note": clean(a.note, 300), "by": clean(a.by, 40), "family": clean(a.family, 30), "model": clean(a.model, 60), "ts": round(__import__("time").time())}
+    if not cl.get("digest") or a.digest != cl["digest"]:
+        sys.exit(f"{a.cid}: the evidence changed since you reviewed it (digest {a.digest[:16]!r} is not the current one). Review it again and use the new digest.")
+    v[a.cid] = {"digest": a.digest, "verdict": a.verdict, "note": clean(a.note, 300), "by": clean(a.by, 40), "family": clean(a.family, 30), "model": clean(a.model, 60), "ts": round(__import__("time").time())}
     jdump(udir(r) / "verdicts.json", v)
     emit(r, clean(a.by, 40), "verdict", cid=a.cid, verdict=a.verdict, note=clean(a.note, 300), family=clean(a.family, 30), model=clean(a.model, 60))
     print(f"{a.cid}: {a.verdict}")
