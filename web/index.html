@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>UAT Swarm</title>
+<style>
+:root{--bg:#f7f7f5;--card:#fff;--ink:#1b1b1a;--mut:#6f6f6a;--line:#e6e6e1;--acc:#2f6fed;--blocker:#d92d20;--major:#f08c00;--minor:#2f9e44;--nit:#868e96;--claude:#d97757;--codex:#10a37f;--opencode:#3b82f6;--tool:#868e96;--fix:#8b5cf6}
+@media (prefers-color-scheme:dark){:root{--bg:#121211;--card:#1c1c1a;--ink:#ececE8;--mut:#9a9a93;--line:#2c2c29;--acc:#6b9bff}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
+header{display:flex;gap:16px;align-items:center;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--card);position:sticky;top:0;z-index:5;flex-wrap:wrap}
+h1{font-size:15px;margin:0;font-weight:600}.sp{flex:1}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:1px 8px;border-radius:99px;border:1px solid var(--line);font-size:12px;color:var(--mut);white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--nit);display:inline-block}.dot.running{background:var(--codex);animation:p 1.2s infinite}.dot.done{background:var(--minor)}.dot.failed,.dot.tamper{background:var(--blocker)}
+@keyframes p{50%{opacity:.3}}
+nav{display:flex;gap:4px;padding:8px 20px 0}nav button{border:0;background:none;color:var(--mut);padding:8px 12px;border-bottom:2px solid transparent;cursor:pointer;font:inherit}nav button.on{color:var(--ink);border-color:var(--acc)}
+main{padding:16px 20px;max-width:1280px;margin:auto}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+.agent{display:flex;gap:10px;cursor:default}.agent svg{flex:none}.agent .t{min-width:0;flex:1}.agent b{font-weight:600}
+.now{color:var(--mut);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:4px}
+.cols{display:grid;grid-template-columns:1fr 320px;gap:16px}@media(max-width:900px){.cols{grid-template-columns:1fr}}
+.feed{font-size:12px;max-height:520px;overflow:auto}.feed div{display:flex;gap:8px;padding:5px 0;border-bottom:1px solid var(--line);align-items:center}.feed time{color:var(--mut);flex:none}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);margin:18px 0 8px;font-weight:600}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--mut);font-weight:500;font-size:12px}
+.sev{font-size:11px;font-weight:600;padding:1px 7px;border-radius:5px;color:#fff}.sev.blocker{background:var(--blocker)}.sev.major{background:var(--major)}.sev.minor{background:var(--minor)}.sev.nit{background:var(--nit)}
+button.b{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:6px 12px;border-radius:8px;cursor:pointer;font:inherit}button.b.p{background:var(--acc);border-color:var(--acc);color:#fff}button.b:disabled{opacity:.4;cursor:default}
+#graph{width:100%;height:600px;border:1px solid var(--line);border-radius:12px;background:var(--card)}.legend{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0;font-size:12px;color:var(--mut)}
+#pop{position:fixed;pointer-events:none;z-index:20;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:0 8px 28px rgba(0,0,0,.18);max-width:300px;display:none;font-size:12px}
+#pop h4{margin:0 0 4px;font-size:13px}#pop dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:2px 10px}#pop dt{color:var(--mut)}
+.empty{color:var(--mut);padding:30px;text-align:center}.bars{display:flex;gap:10px;align-items:flex-end;height:90px}.bars div{flex:1;text-align:center;font-size:11px;color:var(--mut)}.bars i{display:block;border-radius:5px 5px 0 0;margin-bottom:3px}
+.cv{display:flex;gap:4px;flex-wrap:wrap}.rule{font-size:11px;padding:2px 7px;border-radius:6px;border:1px solid var(--line);color:var(--mut)}.rule.pass{border-color:var(--minor);color:var(--minor)}.rule.fail{border-color:var(--blocker);color:var(--blocker)}
+</style></head><body>
+<header>
+  <div id="orch" style="display:flex;gap:10px;align-items:center"></div>
+  <span class="sp"></span>
+  <span class="chip" id="phase"></span><span class="chip" id="where"></span><span class="chip" id="sbx"></span><span class="chip" id="score"></span>
+</header>
+<nav id="tabs"></nav>
+<main id="view"></main>
+<div id="pop"></div>
+<script>
+const TOKEN="__TOKEN__";
+const FAM={claude:'var(--claude)',codex:'var(--codex)',opencode:'var(--opencode)',tool:'var(--tool)',fix:'var(--fix)',orchestrator:'var(--ink)'};
+const SEV={blocker:'var(--blocker)',major:'var(--major)',minor:'var(--minor)',nit:'var(--nit)'};
+const PETS=['cat','dog','fox','panda','frog','rabbit','owl','penguin','bear','koala'];
+let S=null,tab='live',sel=new Set();
+const h=(s)=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const hash=s=>[...s].reduce((a,c)=>(a*31+c.charCodeAt(0))>>>0,7);
+function pet(id,color,size=44,kind,badge){
+  kind=kind||PETS[hash(id)%PETS.length];const f='#fff',d='#222';
+  const ears={cat:'<path d="M10 20 14 4 24 14ZM54 20 50 4 40 14Z"/>',dog:'<ellipse cx="9" cy="26" rx="7" ry="13"/><ellipse cx="55" cy="26" rx="7" ry="13"/>',fox:'<path d="M8 24 12 2 26 14ZM56 24 52 2 38 14Z"/>',panda:'<circle cx="12" cy="12" r="8" fill="#222"/><circle cx="52" cy="12" r="8" fill="#222"/>',frog:'<circle cx="17" cy="14" r="8"/><circle cx="47" cy="14" r="8"/>',rabbit:'<ellipse cx="22" cy="10" rx="5" ry="15"/><ellipse cx="42" cy="10" rx="5" ry="15"/>',owl:'<path d="M10 22 12 6 26 14ZM54 22 52 6 38 14Z"/>',penguin:'<circle cx="32" cy="8" r="0"/>',bear:'<circle cx="12" cy="14" r="8"/><circle cx="52" cy="14" r="8"/>',koala:'<circle cx="10" cy="22" r="11" fill="#999"/><circle cx="54" cy="22" r="11" fill="#999"/>',elephant:'<ellipse cx="8" cy="34" rx="11" ry="17" fill="#9aa0a6"/><ellipse cx="56" cy="34" rx="11" ry="17" fill="#9aa0a6"/>'}[kind];
+  const face=kind==='panda'?'#f4f4f4':kind==='elephant'?'#b7bcc2':f;
+  const extra=kind==='elephant'?'<path d="M32 38c0 14-2 18-8 20" stroke="#8a9096" stroke-width="7" fill="none" stroke-linecap="round"/>':kind==='penguin'?'<ellipse cx="32" cy="42" rx="12" ry="14" fill="#fff"/>':kind==='owl'?'<circle cx="24" cy="30" r="9" fill="#fff"/><circle cx="40" cy="30" r="9" fill="#fff"/>':kind==='frog'?'':'<ellipse cx="32" cy="44" rx="7" ry="5" fill="#f3d6d0"/>';
+  const eye=(x)=>kind==='panda'?`<ellipse cx="${x}" cy="30" rx="6" ry="7" fill="#222" transform="rotate(${x<32?-20:20} ${x} 30)"/><circle cx="${x}" cy="30" r="2" fill="#fff"/>`:`<circle cx="${x}" cy="30" r="3.2" fill="${d}"/>`;
+  const wrench=badge?`<g transform="translate(40 40)"><circle cx="10" cy="10" r="10" fill="var(--fix)"/><path d="M6 14 13 7M11 5l4 4" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round"/></g>`:'';
+  return `<svg width="${size}" height="${size}" viewBox="0 0 64 64"><g fill="${color}" stroke="${color}" stroke-width="1">${ears}</g><circle cx="32" cy="34" r="22" fill="${face}" stroke="${color}" stroke-width="3"/>${extra}${eye(24)}${eye(40)}${kind==='frog'?'':`<circle cx="32" cy="40" r="2.6" fill="${d}"/>`}<path d="M27 46q5 4 10 0" stroke="${d}" stroke-width="2" fill="none" stroke-linecap="round"/>${wrench}</svg>`;
+}
+const ago=t=>{const s=Math.max(0,Math.round((S.now-t)));return s<60?s+'s':Math.round(s/60)+'m'};
+function dur(a){const e=a.ended||S.now;return a.started?Math.round(e-a.started)+'s':'-'}
+function agentColor(a){return a.role==='fix'?FAM.fix:FAM[a.family]||FAM.tool}
+function agentPet(a,size){return pet(a.id,agentColor(a),size,null,a.role==='fix')}
+function popFor(a){return `<h4>${h(a.id)} ${a.role==='fix'?'· fix agent':'· tester'}</h4><dl><dt>model</dt><dd>${h(a.family)} / ${h(a.model)}</dd><dt>lens</dt><dd>${h(a.lens||'-')}</dd><dt>charter</dt><dd>${h(a.charter||'-')} ${h(a.area||'')}</dd><dt>lane</dt><dd>${h(a.lane||'-')}</dd><dt>status</dt><dd>${h(a.status)} · ${dur(a)}</dd><dt>findings</dt><dd>${a.findings}</dd><dt>doing</dt><dd>${h(a.now)}</dd></dl>`}
+function showPop(html,e){const p=document.getElementById('pop');p.innerHTML=html;p.style.display='block';const x=Math.min(e.clientX+14,innerWidth-320),y=Math.min(e.clientY+14,innerHeight-220);p.style.left=x+'px';p.style.top=y+'px'}
+function hidePop(){document.getElementById('pop').style.display='none'}
+document.addEventListener('mousemove',e=>{const t=e.target.closest('[data-pop]');if(t){const [k,id]=t.dataset.pop.split('|');const a=k==='agent'?S.agents.find(x=>x.id===id):null;if(a)showPop(popFor(a),e);else if(k==='orch')showPop(`<h4>Orchestrator</h4><dl><dt>model</dt><dd>${h(S.orchestrator.model)}</dd><dt>role</dt><dd>plans, assigns charters, judges by script, reports</dd></dl>`,e)}else if(!e.target.closest('#graph'))hidePop()});
+
+function header(){
+  const o=S.orchestrator;document.getElementById('orch').innerHTML=`<span data-pop="orch|0">${pet('orch','#6b7280',40,'elephant')}</span><div><h1>UAT Swarm · ${h(S.project)}</h1><div style="color:var(--mut);font-size:12px">orchestrated by ${h(o.name)} (${h(o.model)})</div></div>`;
+  document.getElementById('phase').textContent='phase: '+(S.state.phase||'not started');
+  document.getElementById('where').textContent=(S.target.mode==='ssh'?'host: ':'run on: ')+S.target.host+' · '+S.target.kind;
+  document.getElementById('sbx').textContent='sandbox: '+(S.sandbox.join(',')||'-');
+  document.getElementById('score').textContent=S.score==null?'health: -':'health: '+S.score+'/100';
+}
+function live(){
+  if(!S.agents.length)return `<div class="empty">No agents yet. Run /uat-execute.</div>`;
+  const cards=S.agents.map(a=>`<div class="card agent" data-pop="agent|${h(a.id)}">${agentPet(a,52)}<div class="t"><div><b>${h(a.id)}</b> <span class="dot ${a.status}"></span> <span style="color:var(--mut);font-size:12px">${h(a.status)}</span></div>
+   <div style="margin-top:3px"><span class="chip" style="color:${agentColor(a)};border-color:${agentColor(a)}">${h(a.family||'?')}</span> <span class="chip">${h(a.lens||a.role||'')}</span> <span class="chip">${a.findings} found</span></div>
+   <div class="now">${h(a.charter||'')} ${h(a.now)}</div></div></div>`).join('');
+  const feed=[...S.events].reverse().map(e=>{const a=S.agents.find(x=>x.id===e.actor);const av=a?agentPet(a,20):pet('orch','#6b7280',20,'elephant');return `<div><time>${ago(e.ts)}</time>${av}<span>${h(e.actor)} ${h(e.type.replace('_',' '))} ${h(e.text||e.now||e.rule&&e.rule+' '+e.result||e.status||e.state||'')}</span></div>`}).join('');
+  const rules=S.rules.map(r=>{const res=S.agents.map(a=>a.checks[r.id]).filter(Boolean);const st=res.includes('fail')?'fail':res.includes('pass')?'pass':'';return `<span class="rule ${st}" title="${h(r.statement)}">${h(r.id)}</span>`}).join('');
+  return `<div class="cols"><div><h2>Testers</h2><div class="grid">${cards}</div>${S.rules.length?`<h2>Rules under test</h2><div class="cv">${rules}</div>`:''}</div><div><h2>Activity</h2><div class="card feed">${feed||'<div class="empty">quiet</div>'}</div></div></div>`;
+}
+function findings(){
+  const c=S.clusters;if(!c.length)return `<div class="empty">No clusters yet. They appear after /uat-execute and /uat-feedback.</div>`;
+  const n=s=>c.filter(x=>x.severity===s).length,mx=Math.max(1,...['blocker','major','minor','nit'].map(n));
+  const bars=['blocker','major','minor','nit'].map(s=>`<div><i style="height:${n(s)/mx*70}px;background:${SEV[s]}"></i>${n(s)} ${s}</div>`).join('');
+  const rd=S.rounds.length?`<svg width="100%" height="90" viewBox="0 0 ${Math.max(S.rounds.length*60,120)} 90"><polyline fill="none" stroke="var(--acc)" stroke-width="2" points="${S.rounds.map((r,i)=>`${i*60+20},${80-Math.min(70,(r.new_clusters||0)*12)}`).join(' ')}"/>${S.rounds.map((r,i)=>`<circle cx="${i*60+20}" cy="${80-Math.min(70,(r.new_clusters||0)*12)}" r="4" fill="var(--acc)"/><text x="${i*60+14}" y="90" font-size="10" fill="var(--mut)">r${r.round}</text>`).join('')}</svg>`:'<div class="empty">no rounds</div>';
+  const rows=c.map(x=>`<tr><td><span class="sev ${x.severity}">${x.severity}</span></td><td>${h(x.cid)}</td><td>${h(x.title)}<div style="color:var(--mut);font-size:12px">${h(x.merge_reasons?.join(', ')||'')}</div></td><td>${h(x.area)}</td><td>${x.agents.map(a=>h(a)).join(', ')}</td><td>${h(x.replay)}${x.fail_rate&&x.fail_rate<1?' '+Math.round(x.fail_rate*100)+'%':''}</td><td>${h(x.verdict)}</td></tr>`).join('');
+  return `<div class="grid" style="grid-template-columns:1fr 1fr"><div class="card"><h2 style="margin-top:0">By severity</h2><div class="bars">${bars}</div></div><div class="card"><h2 style="margin-top:0">New clusters per round</h2>${rd}</div></div><h2>Clusters</h2><div class="card" style="padding:0;overflow:auto"><table><tr><th>sev</th><th>id</th><th>title</th><th>area</th><th>agents</th><th>replay</th><th>verdict</th></tr>${rows}</table></div>`;
+}
+function fixes(){
+  const q=S.fixqueue;if(!q.length)return `<div class="empty">Nothing queued. Failed or non-optimal results land here after /uat-feedback.</div>`;
+  const rows=q.map(i=>`<tr><td>${i.state==='proposed'?`<input type="checkbox" data-id="${h(i.cid)}" ${sel.has(i.cid)?'checked':''}>`:''}</td><td><span class="sev ${i.severity}">${i.severity}</span></td><td>${h(i.cid)}</td><td>${h(i.title)}</td><td>${h(i.kind)}</td><td>${h(i.state)}${i.branch?'<div style="color:var(--mut);font-size:12px">'+h(i.branch)+'</div>':''}</td></tr>`).join('');
+  const np=q.filter(i=>i.state==='proposed').length,na=q.filter(i=>i.state==='approved').length;
+  return `<p style="color:var(--mut)">Approving here only gives permission. Run <code>/uat-fix</code> and fix agents will start on approved items. Nothing is pushed or merged.</p>
+  <p><button class="b p" id="ap" ${sel.size?'':'disabled'}>Approve selected (${sel.size})</button> <button class="b" id="apb" ${np?'':'disabled'}>Approve all blocker+major</button> <button class="b" id="rj" ${sel.size?'':'disabled'}>Reject selected</button> <span class="chip">${np} proposed</span> <span class="chip">${na} approved</span></p>
+  <div class="card" style="padding:0;overflow:auto"><table><tr><th></th><th>sev</th><th>id</th><th>title</th><th>kind</th><th>state</th></tr>${rows}</table></div>`;
+}
+async function act(path,body){await fetch(path,{method:'POST',headers:{'X-UAT-Token':TOKEN,'Content-Type':'application/json'},body:JSON.stringify(body)});sel.clear();await load()}
+
+/* ---- graph: small force layout, no dependencies ---- */
+let G={nodes:[],edges:[],sig:''};
+function buildGraph(){
+  const nodes=[],edges=[],ix={};const add=(id,o)=>{if(!ix[id]){ix[id]={id,x:Math.random()*600+100,y:Math.random()*400+100,vx:0,vy:0,...o};nodes.push(ix[id])}return ix[id]};
+  add('orch',{type:'orchestrator',label:'Orchestrator',r:22,color:'#6b7280',info:{model:S.orchestrator.model}});
+  S.agents.forEach(a=>{add('a:'+a.id,{type:a.role==='fix'?'fix':'agent',label:a.id,r:14,color:agentColor(a),agent:a});edges.push(['orch','a:'+a.id])});
+  S.charters.forEach(c=>{const a=S.agents.find(x=>x.charter===c.id);add('c:'+c.id,{type:'charter',label:c.id,r:8,color:'#94a3b8',info:{area:c.area,lens:c.lens}});if(a)edges.push(['a:'+a.id,'c:'+c.id]);(c.rule_ids||[]).forEach(rid=>{const used=S.clusters.some(k=>k.rule_id===rid);if(used){add('r:'+rid,{type:'rule',label:rid,r:6,color:'#cbd5e1',info:{rule:(S.rules.find(x=>x.id===rid)||{}).statement}});edges.push(['c:'+c.id,'r:'+rid])}})});
+  S.clusters.forEach(k=>{const fq=S.fixqueue.find(f=>f.cid===k.cid);add('k:'+k.cid,{type:'finding',label:k.cid,r:{blocker:14,major:11,minor:8,nit:6}[k.severity],color:SEV[k.severity],info:{title:k.title,severity:k.severity,replay:k.replay,verdict:k.verdict,fix:fq?fq.state:'-'}});
+    k.agents.forEach(id=>ix['a:'+id]&&edges.push(['a:'+id,'k:'+k.cid]));if(k.rule_id&&ix['r:'+k.rule_id])edges.push(['r:'+k.rule_id,'k:'+k.cid])});
+  const sig=nodes.map(n=>n.id).join();if(sig!==G.sig){G={nodes,edges:edges.filter(e=>ix[e[0]]&&ix[e[1]]).map(e=>[ix[e[0]],ix[e[1]]]),sig}}else{nodes.forEach(n=>Object.assign(G.nodes.find(m=>m.id===n.id),{info:n.info,agent:n.agent,color:n.color}))}
+}
+let raf=0,drag=null;
+function graphView(){
+  if(!S.agents.length&&!S.clusters.length)return `<div class="empty">The graph fills in as agents and findings appear.</div>`;
+  return `<div class="legend">${[['orchestrator','#6b7280'],['tester','var(--claude)'],['charter','#94a3b8'],['rule','#cbd5e1'],['finding (size = severity)','var(--major)']].map(([l,c])=>`<span><span class="dot" style="background:${c}"></span> ${l}</span>`).join('')}<span>drag nodes · hover for details</span></div><svg id="graph"></svg>`;
+}
+function startGraph(){
+  const svg=document.getElementById('graph');if(!svg)return;cancelAnimationFrame(raf);
+  const W=svg.clientWidth,Ht=svg.clientHeight;
+  const tick=()=>{const N=G.nodes;
+    for(const a of N){for(const b of N){if(a===b)continue;let dx=a.x-b.x,dy=a.y-b.y,d2=dx*dx+dy*dy+.01,f=1400/d2;a.vx+=dx*f/Math.sqrt(d2);a.vy+=dy*f/Math.sqrt(d2)}a.vx+=(W/2-a.x)*.002;a.vy+=(Ht/2-a.y)*.002}
+    for(const [a,b] of G.edges){const dx=b.x-a.x,dy=b.y-a.y,d=Math.sqrt(dx*dx+dy*dy)||1,f=(d-90)*.02;a.vx+=dx/d*f;a.vy+=dy/d*f;b.vx-=dx/d*f;b.vy-=dy/d*f}
+    for(const n of N){if(n===drag)continue;n.vx*=.82;n.vy*=.82;n.x=Math.max(20,Math.min(W-20,n.x+n.vx));n.y=Math.max(20,Math.min(Ht-20,n.y+n.vy))}
+    svg.innerHTML=G.edges.map(([a,b])=>`<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="var(--line)" stroke-width="1.5"/>`).join('')+
+      G.nodes.map(n=>{const inner=n.type==='orchestrator'?pet('orch',n.color,n.r*2,'elephant'):n.agent?pet(n.agent.id,n.color,n.r*2.2,null,n.type==='fix'):`<circle r="${n.r}" fill="${n.color}"/>`;return `<g data-n="${h(n.id)}" transform="translate(${n.x - (n.type==='orchestrator'||n.agent?n.r*1.1:0)} ${n.y - (n.type==='orchestrator'||n.agent?n.r*1.1:0)})" style="cursor:grab">${n.type==='orchestrator'||n.agent?inner:inner.replace('<circle','<circle').replace(/^/,'')}<text y="${n.r*2.2+10}" x="${n.type==='orchestrator'||n.agent?n.r*1.1:0}" text-anchor="middle" font-size="10" fill="var(--mut)">${h(n.label)}</text></g>`}).join('');
+    raf=requestAnimationFrame(tick)};
+  tick();
+  svg.onmousedown=e=>{const g=e.target.closest('[data-n]');if(g)drag=G.nodes.find(n=>n.id===g.dataset.n)};
+  addEventListener('mouseup',()=>drag=null);
+  svg.onmousemove=e=>{const r=svg.getBoundingClientRect();if(drag){drag.x=e.clientX-r.left;drag.y=e.clientY-r.top;drag.vx=drag.vy=0}
+    const g=e.target.closest('[data-n]');if(!g){hidePop();return}const n=G.nodes.find(m=>m.id===g.dataset.n);
+    if(n.agent)showPop(popFor(n.agent),e);else showPop(`<h4>${h(n.label)} · ${h(n.type)}</h4><dl>${Object.entries(n.info||{}).map(([k,v])=>`<dt>${h(k)}</dt><dd>${h(v)}</dd>`).join('')}</dl>`,e)};
+  svg.onmouseleave=hidePop;
+}
+function render(){
+  header();const tabs=[['live','Live'],['graph','Graph'],['findings','Findings'],['fixes','Fixes ('+S.fixqueue.filter(i=>i.state==='proposed').length+')']];
+  document.getElementById('tabs').innerHTML=tabs.map(([k,l])=>`<button class="${k===tab?'on':''}" data-t="${k}">${l}</button>`).join('');
+  const v=document.getElementById('view');
+  if(tab==='graph'){buildGraph();if(!document.getElementById('graph')){v.innerHTML=graphView();startGraph()}return}
+  cancelAnimationFrame(raf);v.innerHTML={live,findings,fixes}[tab]();
+  v.querySelectorAll('input[data-id]').forEach(i=>i.onchange=()=>{i.checked?sel.add(i.dataset.id):sel.delete(i.dataset.id);render()});
+  const on=(id,f)=>{const b=document.getElementById(id);if(b)b.onclick=f};
+  on('ap',()=>act('/api/fix/approve',{ids:[...sel]}));on('rj',()=>act('/api/fix/reject',{ids:[...sel]}));on('apb',()=>act('/api/fix/approve',{severities:['blocker','major']}));
+}
+document.getElementById('tabs').onclick=e=>{const t=e.target.dataset.t;if(t){tab=t;document.getElementById('view').innerHTML='';render()}};
+async function load(){try{S=await (await fetch('/api/state')).json();render()}catch(e){}}
+load();setInterval(load,1500);
+</script></body></html>

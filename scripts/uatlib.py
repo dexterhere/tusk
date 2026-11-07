@@ -93,15 +93,24 @@ def emit(r, actor, type_, **data):
 
 
 def read_events(r, since=0):
+    """Orchestrator events plus each agent's own events.jsonl (actor forced to the agent's dir name), sorted by time."""
     out = []
-    for ln in (udir(r) / "events.jsonl").read_text(errors="ignore").splitlines() if (udir(r) / "events.jsonl").exists() else []:
+    sources = [(udir(r) / "events.jsonl", None)] + [(p, p.parent.name) for p in sorted((udir(r) / "agents").glob("*/events.jsonl"))]
+    for path, actor in sources:
         try:
-            e = json.loads(ln)
-        except ValueError:
+            lines = path.read_text(errors="ignore").splitlines()[-2000:]
+        except OSError:
             continue
-        if e["ts"] > since:
-            out.append(e)
-    return out
+        for ln in lines:
+            try:
+                e = json.loads(ln)
+            except ValueError:
+                continue
+            if actor:
+                e["actor"] = actor
+            if e.get("ts", 0) > since:
+                out.append(e)
+    return sorted(out, key=lambda e: e["ts"])
 
 
 # ---------------------------------------------------------------- lanes and host layout

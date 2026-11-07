@@ -32,7 +32,7 @@ def main():
     acc, rej = [], []
     for c in clusters:
         v = verdicts.get(c["cid"], {}).get("verdict") or c["verdict"]
-        (acc if v == "accept" else rej).append({**c, "final": v, "note": verdicts.get(c["cid"], {}).get("note", "")})
+        (acc if v in ("accept", "intermittent") else rej).append({**c, "final": v, "note": verdicts.get(c["cid"], {}).get("note", "")})
     items = []
     for c in acc:
         lead = jload(r / c["files"][0], {})
@@ -48,7 +48,7 @@ def main():
         jdump(reg / "finding.json", lead)
         items.append({
             "cid": c["cid"], "fp": c["fp"], "title": c["title"], "severity": c["severity"], "category": c["category"], "area": c["area"],
-            "rule_id": c["rule_id"], "confidence": {"agents": c["agreement"], "families": c["families"], "replay": c["replay"]},
+            "rule_id": c["rule_id"], "confidence": {"agents": c["agreement"], "families": c["families"], "replay": c["replay"], "fail_rate": c["fail_rate"], "intermittent": c["final"] == "intermittent"}, "kind": c["kind"],
             "expected": lead.get("expected"), "actual": lead.get("actual"), "repro": lead.get("repro"), "repro_dir": str(agent_dir.relative_to(r)),
             "regression_dir": str(reg.relative_to(r)), "evidence": lead.get("evidence"), "suspect": lead.get("suspect"),
             "acceptance": f"cd {agent_dir.relative_to(r)} && {lead.get('repro', {}).get('cmd')}   # must exit 0 after the fix",
@@ -62,7 +62,10 @@ def main():
     out.mkdir(exist_ok=True)
     jdump(out / "findings.json", {"health_score": score, "baseline_delta": delta, "findings": items})
 
-    L = [f"# UAT Report", "", f"**Health score:** {score}/100 | **Accepted:** {len(items)} | **Rejected/dropped:** {len(rej)}", ""]
+    led = [__import__("json").loads(x) for x in (u / "ledger.jsonl").read_text().splitlines()] if (u / "ledger.jsonl").exists() else []
+    levels = sorted({x.get("sandbox", "?") for x in led if not x.get("ping")})
+    L = [f"# UAT Report", "", f"**Health score:** {score}/100 | **Accepted:** {len(items)} | **Rejected/dropped:** {len(rej)}",
+         f"**Sandbox:** {', '.join(levels) or 'n/a'} (bwrap = read-only system, empty home, own lane; network is open to the target by design)", ""]
     if delta:
         L += [f"**Since last run:** {len(delta['new'])} new, {len(delta['still_open'])} still open, {len(delta['fixed'])} fixed", ""]
     sev_n = {s: sum(1 for i in items if i["severity"] == s) for s in SEV}
@@ -73,7 +76,8 @@ def main():
         L += [
             f"## {i['cid']} [{i['severity'].upper()}] {i['title']}", "",
             f"- **Area / category:** {i['area']} / {i['category']}" + (f" | **Rule:** {i['rule_id']}" if i["rule_id"] else ""),
-            f"- **Confidence:** {i['confidence']['agents']} agent(s) ({', '.join(i['confidence']['families'])}); replay: {i['confidence']['replay']}",
+            f"- **Confidence:** {i['confidence']['agents']} agent(s) ({', '.join(i['confidence']['families'])}); replay: {i['confidence']['replay']}"
+            + (f", INTERMITTENT, fails {i['confidence']['fail_rate']:.0%} of stress runs (suspected race; fix acceptance = 0 failures in stress runs)" if i["confidence"]["intermittent"] else ""),
             f"- **Expected:** {i['expected']}", f"- **Actual:** {i['actual']}", f"- **Suspect location:** {loc}",
             f"- **Evidence:** {i['evidence']}", f"- **Repro ({i['repro']['kind']}):** `{i['repro']['cmd']}`",
             f"- **Acceptance (fix is done when this exits 0):** `{i['acceptance']}`", f"- **Regression test pinned in:** `{i['regression_dir']}`", "",
@@ -88,6 +92,8 @@ def main():
     (out / "junit.xml").write_text(f'<?xml version="1.0"?><testsuite name="uat" tests="{len(items)}" failures="{len(items)}">{cases}</testsuite>\n')
     if a.save_baseline:
         jdump(u / "baseline.json", sorted(cur))
+    import fixq
+    fixq.sync(r)
     print(f"report: {out / 'report.md'}  accepted={len(items)} score={score}")
 
 
