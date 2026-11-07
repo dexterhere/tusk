@@ -300,7 +300,7 @@ def make_handler(r, port):
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("Referrer-Policy", "no-referrer")
             if ctype.startswith("text/html"):
-                self.send_header("Content-Security-Policy", f"default-src 'none'; script-src 'nonce-{self.nonce}'; style-src 'unsafe-inline'; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'")
+                self.send_header("Content-Security-Policy", f"default-src 'none'; script-src 'nonce-{self.nonce}'; style-src 'unsafe-inline'; img-src 'self'; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'")
             self.end_headers()
             self.wfile.write(b)
 
@@ -383,6 +383,8 @@ def make_handler(r, port):
                 return self._send(200, json.dumps(team.view(r)))
             if u.path == "/api/kb":
                 return self._send(200, json.dumps(kb.view(r)))
+            if u.path in ("/logo.svg", "/favicon.svg"):                 # the elephant: page logo and tab icon
+                return self._send(200, (WEB.parent / "logo.svg").read_bytes(), "image/svg+xml")
             if u.path in ("/vendor/iconoir.js", "/vendor/dicebear-gaze.js"):      # self-hosted front-end libraries, fixed allowlist
                 return self._send(200, (WEB.parent / u.path.removeprefix("/")).read_bytes(), "application/javascript; charset=utf-8")
             if u.path == "/fonts/Figtree.ttf":                 # self-hosted (SIL OFL): the page makes no outside requests

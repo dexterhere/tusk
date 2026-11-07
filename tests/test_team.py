@@ -120,3 +120,19 @@ class Dash(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Logo(unittest.TestCase):
+    def test_logo_and_tab_icon_are_served_and_allowed_by_csp(self):
+        r = root()
+        srv = ThreadingHTTPServer(("127.0.0.1", 0), dashboard.make_handler(r, 0))
+        port = srv.server_address[1]
+        srv.RequestHandlerClass = dashboard.make_handler(r, port)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(srv.shutdown)
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/favicon.svg") as f:
+            self.assertEqual(f.headers["Content-Type"], "image/svg+xml")
+            self.assertIn(b"<svg", f.read())
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/") as f:
+            self.assertIn("img-src 'self'", f.headers["Content-Security-Policy"])
+            self.assertIn(b'rel="icon"', f.read())
