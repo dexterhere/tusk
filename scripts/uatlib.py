@@ -160,6 +160,8 @@ def agent_identity(r, aid):
 def effective_verdict(r, c, verdicts=None):
     """A verifier's decision, when there is one, is the final word on a disputed cluster; otherwise the script's verdict stands."""
     v = (verdicts if verdicts is not None else jload(udir(r) / "verdicts.json", {}) or {}).get(c.get("cid"), {})
+    if not v.get("digest") or v.get("digest") != c.get("digest"):   # judged other evidence (or is a legacy record): never carry it over
+        v = {}
     return {"accept": "accept", "reject": "reject"}.get(v.get("verdict"), c.get("verdict", ""))
 
 

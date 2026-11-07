@@ -136,3 +136,31 @@ class Logo(unittest.TestCase):
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/") as f:
             self.assertIn("img-src 'self'", f.headers["Content-Security-Policy"])
             self.assertIn(b'rel="icon"', f.read())
+
+
+class FixProof(unittest.TestCase):
+    def test_replay_of_a_fix_uses_the_trusted_snapshot_not_the_live_file(self):
+        import replay
+        r = root()
+        live = r / ".uat" / "agents" / "A1" / "findings" / "F-1.json"
+        live.parent.mkdir(parents=True)
+        live.write_text('{"id": "F-1"}')
+        t = uatlib.trusted_dir(r, live)
+        (t / "files").mkdir(parents=True)
+        (t / "finding.json").write_text('{"id": "F-1", "from": "snapshot"}')
+        (t / "digest").write_text("abc")
+        live.write_text('{"id": "F-1", "from": "edited-after-snapshot"}')
+        obj, digest = uatlib.trusted(r, live)
+        self.assertEqual((obj["from"], digest), ("snapshot", "abc"))
+        # a fix proof with no snapshot cannot pass: it must not fall back to the live file
+        import shutil
+        shutil.rmtree(t)
+        self.assertEqual(replay.replay_one(live, uatlib.config(r), r, None, 1, True, use_trusted=True), "error")
+
+
+class StaleVerdict(unittest.TestCase):
+    def test_verdict_is_ignored_when_the_evidence_changed_or_digest_missing(self):
+        c = {"cid": "C-aaaaaaaaaaaa", "digest": "new", "verdict": "needs_verifier"}
+        for v in ({"verdict": "reject", "digest": "old"}, {"verdict": "reject"}):
+            self.assertEqual(uatlib.effective_verdict(None, c, {"C-aaaaaaaaaaaa": v}), "needs_verifier")
+        self.assertEqual(uatlib.effective_verdict(None, c, {"C-aaaaaaaaaaaa": {"verdict": "reject", "digest": "new"}}), "reject")

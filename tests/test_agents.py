@@ -62,7 +62,8 @@ class Snapshot(unittest.TestCase):
             self.assertEqual(c["verdict"], "needs_verifier")
             self.assertEqual(s["assignments"][0]["to"], "A4")
             self.assertEqual([x["state"] for x in s["board"] if x["kind"] == "test"], ["done"] if s["agents"] and s["agents"][0]["status"] == "done" else ["planned"])
-            (u / "verdicts.json").write_text(json.dumps({"C-aaaaaaaaaaaa": {"verdict": "reject", "by": "Elephant", "family": "claude", "model": "sonnet", "note": "by design"}}))
+            dg = json.loads((u / "clusters.json").read_text())[0].get("digest", "")
+            (u / "verdicts.json").write_text(json.dumps({"C-aaaaaaaaaaaa": {"digest": dg, "verdict": "reject", "by": "Elephant", "family": "claude", "model": "sonnet", "note": "by design"}}))
             c = dashboard.snapshot(r)["clusters"][0]
             self.assertEqual(c["verdict"], "reject")                         # the verifier's decision replaces needs_verifier
             self.assertEqual(c["decided_by"]["model"], "sonnet")

@@ -156,7 +156,10 @@ class Tags(unittest.TestCase):
             r = Path(t)
             c = cluster(r, "C-aaaaaaaaaaaa", "Disputed", "app/x.py")
             c["verdict"] = "needs_verifier"
+            c["digest"] = "d1"
             project(t, [c])
             self.assertNotIn("i:C-aaaaaaaaaaaa", kb.ingest(r)["nodes"])
-            (r / ".uat/verdicts.json").write_text(json.dumps({"C-aaaaaaaaaaaa": {"verdict": "accept", "by": "V1"}}))
+            (r / ".uat/verdicts.json").write_text(json.dumps({"C-aaaaaaaaaaaa": {"verdict": "accept", "by": "V1", "digest": "OLD"}}))
+            self.assertNotIn("i:C-aaaaaaaaaaaa", kb.ingest(r)["nodes"])      # judged other evidence: not carried over
+            (r / ".uat/verdicts.json").write_text(json.dumps({"C-aaaaaaaaaaaa": {"verdict": "accept", "by": "V1", "digest": "d1"}}))
             self.assertIn("i:C-aaaaaaaaaaaa", kb.ingest(r)["nodes"])

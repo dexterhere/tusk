@@ -27,7 +27,8 @@ def main():
     if not re.fullmatch(r"C-[0-9a-f]{12}", a.cid) or a.cid not in {c["cid"] for c in jload(udir(r) / "clusters.json", [])}:
         sys.exit(f"unknown cluster {a.cid}")
     v = jload(udir(r) / "verdicts.json", {})
-    v[a.cid] = {"verdict": a.verdict, "note": clean(a.note, 300), "by": clean(a.by, 40), "family": clean(a.family, 30), "model": clean(a.model, 60), "ts": round(__import__("time").time())}
+    cl = next(c for c in jload(udir(r) / "clusters.json", []) if c["cid"] == a.cid)
+    v[a.cid] = {"digest": cl.get("digest", ""), "verdict": a.verdict, "note": clean(a.note, 300), "by": clean(a.by, 40), "family": clean(a.family, 30), "model": clean(a.model, 60), "ts": round(__import__("time").time())}
     jdump(udir(r) / "verdicts.json", v)
     emit(r, clean(a.by, 40), "verdict", cid=a.cid, verdict=a.verdict, note=clean(a.note, 300), family=clean(a.family, 30), model=clean(a.model, 60))
     print(f"{a.cid}: {a.verdict}")

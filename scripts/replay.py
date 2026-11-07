@@ -16,6 +16,7 @@ Concurrency findings get `replay.stress_runs` runs. Findings replay in parallel,
   --passing    fix check: exit 0 only if >=1 finding ran and every one now exits 0 on every run (use --keep-code after `uat_env lane sync`)
 """
 import argparse
+import hashlib
 import concurrent.futures as cf
 import os
 import queue
@@ -29,7 +30,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sandbox  # noqa: E402
 from uat_env import Lane  # noqa: E402
-from uatlib import HOME, clean, config, emit, finding_files, finding_schema, jdump, jload, lane_names, replay_path, snapshot_finding, udir, validate  # noqa: E402
+from uatlib import HOME, trusted, clean, config, emit, finding_files, finding_schema, jdump, jload, lane_names, replay_path, snapshot_finding, udir, validate  # noqa: E402
 
 TARGET_MARKERS = ("UAT_BASE_URL", "UAT_WS", "UAT_LANE", "127.0.0.1", "localhost")
 
@@ -44,8 +45,9 @@ def touches_target(obj, files_dir, cfg):
     return any(m in text for m in (*TARGET_MARKERS, *cfg["replay"]["target_markers"]))
 
 
-def replay_one(f, cfg, root, lane, runs, keep_code):
-    obj, digest = snapshot_finding(root, f)
+def replay_one(f, cfg, root, lane, runs, keep_code, use_trusted=False):
+    # fix proofs replay the snapshot taken before the first replay; the live agent dir may have been edited since
+    obj, digest = trusted(root, f) if use_trusted else snapshot_finding(root, f)
     if obj is None or validate(obj, finding_schema()):
         return "error"
     t = udir(root) / "trusted" / f.parent.parent.name / f.stem / "files"       # execution uses ONLY this copy
@@ -118,9 +120,11 @@ def main():
         cl = next((c for c in jload(udir(r) / "clusters.json", []) if c["cid"] == a.only), None)
         if cl is None:
             sys.exit(f"unknown cluster {a.only}")
-        files = [f for f in files if (jload(f, {}) or {}).get("id") in cl["members"] and f.parent.parent.name in cl["agents"]]
+        files = [f for f in files if (trusted(r, f)[0] or {}).get("id") in cl["members"] and f.parent.parent.name in cl["agents"]]
         if len(files) < len(cl["members"]):
             sys.exit(f"cluster {a.only}: {len(cl['members'])} member findings expected, {len(files)} found")
+        if hashlib.sha256("".join(sorted(trusted(r, f)[1] for f in files)).encode()).hexdigest()[:16] != cl.get("digest"):
+            sys.exit(f"cluster {a.only}: the trusted snapshots no longer match the cluster's evidence digest; re-run the replay and dedupe steps")
     if a.passing and not files:
         sys.exit("--passing with nothing to replay is not a proof")
     names = [a.lane] if a.lane else lane_names(cfg)
@@ -131,7 +135,7 @@ def main():
     def job(f):
         lane = pool.get()
         try:
-            return f, replay_one(f, cfg, r, lane, runs, a.keep_code)
+            return f, replay_one(f, cfg, r, lane, runs, a.keep_code, bool(a.only or a.passing))
         finally:
             pool.put(lane)
 
