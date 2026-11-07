@@ -22,10 +22,16 @@ Prefer control over automation? Run the stages yourself: `/uat-init`, `/uat-plan
 
 **Safe by default:** tester commands run in a bubblewrap sandbox, only in disposable copies of your app; secrets are never sent to agents; the dashboard listens on 127.0.0.1 only; every phase, verdict and fix is in a tamper-evident audit log. Details under "How trust works".
 
----
+## How it works
 
-A swarm of cheap, blind tester agents (Claude Haiku, Codex, OpenCode free models) tries to break a system. A script, not a model, decides what is real. Every
-confirmed result lands in a fix queue; fixes start only after a human approves them.
+1. **Set up** (`/uat-init`): you choose where to run and which agents; Tusk builds a scrubbed copy of your app and one isolated *lane* per parallel tester.
+2. **Plan** (`/uat-plan`): business rules are extracted from your docs and code, with sources, and become test assignments you approve.
+3. **Test** (`/uat-execute`): blind tester agents (cheap models) try to break the app, one lane each.
+4. **Prove** (`/uat-feedback`): a script replays every claim; only reproducible problems are merged, ranked and put in the report and fix queue. A verifier agent judges only the disputed ones.
+5. **Fix** (`/uat-fix`), only for issues you approve in chat: a fixer works on a branch and proves the fix by replay.
+6. **Re-test**: the next run marks each fix *verified* or *regressed*, using the knowledge graph to check what else the change could break.
+
+The tool is a testing environment that builds a knowledge graph of your code, its bugs and its tests. It is not a CI replacement and it does not edit your source during testing.
 
 ## Where it runs
 
@@ -55,7 +61,9 @@ Swarm size is bounded by the machine that runs the tests (`scripts/hostinfo.py`)
 
 ## Live dashboard
 
-`python3 scripts/dashboard.py --root .` then open the URL it prints. The page is read-only with one exception: the **Team** page can save a *proposal* for a new agent team. A proposal changes nothing by itself; the orchestrator shows it to you and applies it only after you agree in chat (`/uat-full apply`). Nothing about fixes, approvals or commands can be changed from the page. It has a collapsible sidebar, light/dark theme and Figtree, and pages for Overview, Agents, Tests, Findings, Fix cycle, Audit log, Report and the Knowledge graph.
+`python3 scripts/dashboard.py --root .` then open the URL it prints. The page is read-only with one exception: the **Team** page can save a *proposal* for a new agent team. A proposal changes nothing by itself; the orchestrator shows it to you and applies it only after you agree in chat (`/uat-full apply`). Nothing about fixes, approvals or commands can be changed from the page. It has a collapsible sidebar, light/dark theme and Figtree, and pages for Journey, Overview, Agents (cards, map, assignments), Tests, Findings, Fix cycle, Audit log, Report, Knowledge graph and Team. Every finding shows which agent and model found it. The page updates live (server-sent events). The Journey page and the work board show where you are in the cycle and who owns what.
+
+
 
 ## Knowledge base and the fix cycle
 
@@ -68,9 +76,6 @@ find (execute) -> report + kb ingest -> you approve in chat -> kb impact (what e
 ```
 
 Issue status: open, approved, fixing, fixed (proven, waiting), verified (passed again in a later run), regressed, wontfix, not_seen. In ssh mode the graph lives on the orchestrating computer and is never overwritten by the host mirror; testers on the host only see the behaviour-only re-verify list in their brief. Testers stay blind to code: `kb.py link` (done in `/uat-feedback`) and `kb.py fixed` add the code locations.
-Four tabs: **Live** (each agent as a pet with a label popup, who orchestrates, what each is doing now, rules under test), **Graph** (orchestrator, agents, charters,
-rules, findings sized by severity), **Findings** (severity bars, new clusters per round, cluster table), **Fixes** (queue with Approve / Reject).
-
 ## How trust works
 
 - **Lanes.** One tester = one lane: its own copy of the workspace, its own port, its own app process. Testers never share state, so a failure is theirs to explain.
@@ -92,14 +97,17 @@ rules, findings sized by severity), **Findings** (severity bars, new clusters pe
 
 ## Layout
 
-`skills/` commands · `agents/` personas · `resources/` schema, tool catalog, briefs · `scripts/` stdlib Python · `web/` dashboard page · `tests/` unit tests and a demo app with 5 seeded bugs · `calibration/` recorded model runs.
+`skills/` commands · `agents/` personas · `resources/` schema, tool catalog, briefs · `scripts/` stdlib Python · `web/` dashboard page, logo and vendored assets · `docs/` install guide and journey · `tests/` unit tests and a demo app with 5 seeded bugs · `calibration/` recorded model runs.
 
-Config: `uat.defaults.json`, overridden by `<repo>/.uat/uat.json`. Test: `python3 -m unittest discover -s tests -v`.
-Install: `for s in skills/*; do ln -sfn "$PWD/$s" ~/.claude/skills/$(basename $s); done`
+Config: `uat.defaults.json`, overridden by `<repo>/.uat/uat.json`. Test: `UAT_STATE_DIR=$(mktemp -d) python3 -m unittest discover -s tests`. Install: [docs/INSTALL.md](docs/INSTALL.md).
 
 ## Audit log integrity
 
 `.uat/audit.jsonl` is hash-chained and its latest head is also kept in `~/.local/state/uat/` (override with `UAT_STATE_DIR`). `python3 scripts/audit.py verify` checks both. A deleted, truncated or rewritten log fails verification. If you wipe `.uat` on purpose, run `python3 scripts/audit.py reset` once. This is not a MAC: the same OS user can alter both copies. Events recorded on an SSH host (`events.host.jsonl`) are not part of the chain.
+
+## Any agent, not only three
+
+Testers, verifiers and fixers run through `scripts/harness.py`. `claude`, `codex` and `opencode` are verified. `gemini`, `qwen`, `aider`, `goose`, `amp`, `cursor`, `copilot` and `crush` are presets from each tool's headless flags and are **not verified**: log in, then `python3 scripts/run_agent.py --ping --family <name> --model <m>` must answer OK. Any other agent: add a `harness` entry in `.uat/uat.json` or a small wrapper script. The orchestrator can be any agent that can run the stage scripts; the `/uat*` skills are the Claude Code packaging.
 
 ## Journey, agents and assets
 
