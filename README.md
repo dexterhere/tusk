@@ -1,6 +1,8 @@
-<p align="center"><img src="web/logo.svg" alt="UAT Swarm logo: the orchestrator elephant" width="96" height="96"></p>
+<p align="center"><img src="web/logo.svg" alt="Tusk logo: the orchestrator elephant" width="96" height="96"></p>
 
-# UAT Swarm
+# Tusk
+
+*UAT Swarm: user-acceptance testing by a herd of AI agents.*
 
 **Hand your app to a herd of cheap, blind AI testers. Get back only the bugs a script could reproduce.**
 
@@ -10,7 +12,7 @@ An orchestrator (the elephant, which remembers everything) sends many low-cost t
 
 **You need:** Linux, `python3`, `git`, `bwrap` (bubblewrap), and at least one agent CLI that is logged in (`claude`, `codex` or `opencode`; others in "Any agent" below). Claude Code runs the slash commands.
 
-1. **Install the skills once:** `for s in skills/*; do ln -sfn "$PWD/$s" ~/.claude/skills/$(basename $s); done`
+1. **Install once:** `git clone https://github.com/dexterhere/tusk.git ~/Work/uat`, then `cd ~/Work/uat && for s in skills/*; do ln -sfn "$PWD/$s" ~/.claude/skills/$(basename $s); done`. Full guide: [docs/INSTALL.md](docs/INSTALL.md).
 2. **Open your project** in Claude Code and run `/uat-full`.
 3. **Answer the setup questions.** Where to run (this computer or an ssh host), and the team: one orchestrator plus at least one worker, the same model or different ones. Models are pinged before they are trusted.
 4. **Watch it live** at `http://127.0.0.1:7777` (the dashboard starts for you). It shows who is testing what, findings, the fix cycle, the audit log and the knowledge graph.
@@ -111,4 +113,4 @@ The dashboard's only POST is `/api/team/propose`. Guards, all enforced server-si
 
 ## Project
 
-[MIT License](LICENSE) · [Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) · [Code of conduct](CODE_OF_CONDUCT.md)
+[Install guide](docs/INSTALL.md) · [Journey](docs/JOURNEY.md) · [MIT License](LICENSE) · [Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) · [Code of conduct](CODE_OF_CONDUCT.md)
