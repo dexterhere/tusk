@@ -307,7 +307,7 @@ class Hardening(unittest.TestCase):
                 post = urllib.request.Request(f"http://127.0.0.1:{port}/api/fix/approve", data=b"{}", method="POST")
                 with self.assertRaises(urllib.error.HTTPError) as e:
                     urllib.request.urlopen(post)
-                self.assertEqual(e.exception.code, 501)                             # no POST handler: nothing can be approved from the page
+                self.assertEqual(e.exception.code, 404)                             # only the team-proposal path accepts POST, and it changes no configuration
             finally:
                 srv.terminate()
 

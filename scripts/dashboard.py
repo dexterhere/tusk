@@ -19,9 +19,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import fixq  # noqa: E402
 import kb  # noqa: E402
 import plain  # noqa: E402
+import team  # noqa: E402
 import host  # noqa: E402
 import re  # noqa: E402
-from uatlib import HOME, SEV, agent_identity, agent_meta, audit_read, audit_verify, clean, config, coverage, effective_verdict, is_remote, jload, read_events, safe_read, udir  # noqa: E402
+from uatlib import HOME, SEV, agent_identity, agent_meta, audit, audit_read, audit_verify, clean, config, coverage, effective_verdict, is_remote, jload, read_events, safe_read, udir  # noqa: E402
 
 WEB = HOME / "web" / "index.html"
 
@@ -259,7 +260,7 @@ def change_signature(r):
     u = udir(r)
     parts = []
     pats = ["events*.jsonl", "state.json", "clusters.json", "fixqueue.json", "verdicts.json", "ledger.jsonl", "audit.jsonl", "rounds.jsonl", "plan/plan.json", "report/*", "agents/*/events.jsonl", "agents/*/findings",
-            "replays/*/*.json", "meta/*.json", "model_health.json"]
+            "replays/*/*.json", "meta/*.json", "model_health.json", "team.json", "team.pending.json"]
     try:
         pats.append(str(kb.kbdir(r).relative_to(u)) + "/graph.json") if kb.kbdir(r).is_relative_to(u) else parts.append(str((kb.kbdir(r) / "graph.json").stat().st_mtime_ns))
     except OSError:
@@ -276,6 +277,10 @@ def change_signature(r):
 
 
 DOWNLOADS = {"report.md": ("report", "text/plain; charset=utf-8"), "findings.json": ("report", "application/json"), "junit.xml": ("report", "application/xml")}
+
+
+TOKEN = secrets.token_urlsafe(24)   # per dashboard process; never sent to the page, the user pastes it in
+RECENT = []
 
 
 def make_handler(r, port):
@@ -327,6 +332,36 @@ def make_handler(r, port):
 
         nonce = ""
 
+        def do_POST(self):
+            """The ONLY write the dashboard has: save a team PROPOSAL. It changes no configuration; the orchestrator applies it after you agree in chat."""
+            self.nonce = secrets.token_urlsafe(12)
+            if self.path != "/api/team/propose":
+                return self._send(404, json.dumps({"error": "not found"}))
+            origin = self.headers.get("Origin", "")
+            if not self._host_ok() or origin not in (f"http://127.0.0.1:{port}", f"http://localhost:{port}"):   # blocks cross-site and rebinding
+                return self._send(403, json.dumps({"error": "request not allowed from this page"}))
+            if self.headers.get("Content-Type", "").split(";")[0].strip() != "application/json" or self.headers.get("X-Requested-With") != "uat-dashboard":
+                return self._send(415, json.dumps({"error": "bad request type"}))
+            if not secrets.compare_digest(self.headers.get("X-UAT-Token", ""), TOKEN):
+                return self._send(401, json.dumps({"error": "wrong or missing edit token. Get it by running: python3 scripts/team.py token"}))
+            now = time.time()
+            RECENT[:] = [t for t in RECENT if now - t < 60]
+            if len(RECENT) >= 10:
+                return self._send(429, json.dumps({"error": "too many proposals, wait a minute"}))
+            RECENT.append(now)
+            try:
+                n = int(self.headers.get("Content-Length", "0"))
+                if not 0 < n <= 8192:
+                    raise ValueError("body must be 1 byte to 8 KB")
+                t = team.validate(json.loads(self.rfile.read(n)), config(r), strict_models=True)
+            except (ValueError, json.JSONDecodeError) as e:
+                return self._send(400, json.dumps({"error": clean(str(e), 300)}))
+            tmp = team.path(r, True).with_suffix(".tmp")
+            tmp.write_text(json.dumps(t, indent=1, sort_keys=True))
+            os.replace(tmp, team.path(r, True))
+            audit(r, "dashboard", "team_proposed", workers=len(t["workers"]), orchestrator=f"{t['orchestrator']['family']}/{t['orchestrator']['model']}")
+            self._send(200, json.dumps({"ok": True, "next": "Ask the orchestrator in chat: /uat-full apply"}))
+
         def do_GET(self):
             self.nonce = secrets.token_urlsafe(12)
             if not self._host_ok():
@@ -344,6 +379,8 @@ def make_handler(r, port):
                 return self._send(200 if t else 404, json.dumps(t or {"error": "not in the knowledge graph"}))
             if u.path == "/api/stream":
                 return self._stream()
+            if u.path == "/api/team":
+                return self._send(200, json.dumps(team.view(r)))
             if u.path == "/api/kb":
                 return self._send(200, json.dumps(kb.view(r)))
             if u.path in ("/vendor/iconoir.js", "/vendor/dicebear-gaze.js"):      # self-hosted front-end libraries, fixed allowlist
@@ -386,8 +423,13 @@ def main():
                     pass
                 time.sleep(3)
         threading.Thread(target=mirror, daemon=True).start()
+    tp = team.token_path(r)
+    fd = os.open(tp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+    os.fchmod(fd, 0o600)   # owner-only file; read it with: python3 scripts/team.py token
+    with os.fdopen(fd, "w") as f:
+        f.write(TOKEN)
     srv = ThreadingHTTPServer(("127.0.0.1", port), make_handler(r, port))
-    print(f"UAT dashboard (read-only): http://127.0.0.1:{port}/  (Ctrl+C to stop)", flush=True)
+    print(f"UAT dashboard (read-only except team proposals): http://127.0.0.1:{port}/  (Ctrl+C to stop)", flush=True)
     srv.serve_forever()
 
 
