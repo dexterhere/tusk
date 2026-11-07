@@ -68,6 +68,15 @@ class AuditChain(unittest.TestCase):
             uatlib.audit(r, "orch", "t", n=9)          # attacker-triggered write must not launder the truncation
             self.assertFalse(uatlib.audit_verify(r)[0])
 
+    def test_deleted_log_detected_and_not_laundered(self):
+        with tempfile.TemporaryDirectory() as t:
+            r = project(t)
+            uatlib.audit(r, "orch", "t")
+            (r / ".uat" / "audit.jsonl").unlink()
+            self.assertFalse(uatlib.audit_verify(r)[0])
+            uatlib.audit(r, "orch", "t")               # fresh log must not reset the anchor
+            self.assertFalse(uatlib.audit_verify(r)[0])
+
     def test_malformed_anchor_fails(self):
         with tempfile.TemporaryDirectory() as t:
             r = project(t)

@@ -288,7 +288,7 @@ def audit(r, actor, type_, **data):
         a = _anchor(r)
         recs = audit_read(r) if last else []
         adopted = None
-        if last and a.exists():
+        if a.exists():                                    # also when the log is empty or deleted: anchor says records existed
             if not _anchor_ok(a, recs):                   # never advance the anchor over a log that no longer matches it
                 a.with_suffix(".tamper").write_text(f"seen {time.time():.0f}\n")
         elif last:
@@ -347,7 +347,7 @@ def audit_verify(r):
             return False, n, prev, n
         prev = rec["hash"]
     anchor = _anchor(r)
-    if n and (anchor.with_suffix(".tamper").exists() or not anchor.exists() or not _anchor_ok(anchor, audit_read(r))):
+    if anchor.with_suffix(".tamper").exists() or (n and not anchor.exists()) or (anchor.exists() and not _anchor_ok(anchor, audit_read(r))):
         return False, n, prev, 0 if not anchor.exists() else n   # bad_seq 0 = no anchor (deleted, or log never written by this version)
     return True, n, prev, None
 
