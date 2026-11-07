@@ -449,3 +449,41 @@ class Review(unittest.TestCase):
             self.assertNotEqual(r.returncode, 0)
             self.assertIn("allow_denylist_copy", r.stderr)
             self.assertFalse((Path(t) / ".uat/workspace/local.env").exists())
+
+
+class SshMode(unittest.TestCase):
+    """Target = ssh host, exercised with a shim that runs the 'remote' side in a second local directory."""
+
+    @unittest.skipUnless(shutil.which("rsync") and shutil.which("bwrap"), "needs rsync and bwrap")
+    def test_remote_workspace_lane_agent_and_mirror(self):
+        with tempfile.TemporaryDirectory() as t:
+            shim = Path(t) / "fakessh"
+            shim.write_text('#!/bin/bash\n[ "$1" = fake ] && shift\nif [ $# -eq 1 ]; then exec bash -c "$1"; else exec "$@"; fi\n')
+            shim.chmod(0o755)
+            local, remote = Path(t) / "local", Path(t) / "remote"
+            local.mkdir()
+            root = mkroot(str(local))
+            port = free_port_block()
+            cfg = json.loads((root / ".uat/uat.json").read_text())
+            cfg.update({"target": {"mode": "ssh", "ssh": {"host": "fake", "port": 22, "identity": "", "dir": str(remote)}}})
+            cfg["env"].update({"base_port": port, "base_url": f"http://127.0.0.1:{port}", "health_url": f"http://127.0.0.1:{port}/"})
+            (root / ".uat/uat.json").write_text(json.dumps(cfg))
+            shutil.rmtree(root / ".uat/workspace")
+            env = {**os.environ, "UAT_SSH_CMD": str(shim)}
+
+            def uat(*a):
+                return subprocess.run([PY, str(S / "uat.py"), *a, "--root", str(root)], capture_output=True, text=True, env=env)
+
+            r = uat("uat_env", "workspace")
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertTrue((remote / ".uat/workspace/demo_app/app.py").exists())          # pushed, baseline made on the "host"
+            self.assertTrue((remote / ".uat/workspace/.git").exists())
+            (root / ".uat/agents/A1/findings").mkdir(parents=True)
+            r = uat("run_agent", "--id", "A1", "--lane", "L1", "--family", "codex", "--model", "m", "--cmd",
+                    "touch findings/F-1.json")
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr + (root / ".uat/events.host.jsonl").read_text()[-600:])
+            self.assertTrue((root / ".uat/ledger.jsonl").exists())                          # mirrored back
+            self.assertTrue((root / ".uat/agents/A1/findings/F-1.json").exists())
+            self.assertTrue(any(root.glob(".uat/events.host.jsonl")))                       # host events do not clobber local events.jsonl
+            self.assertFalse((root / ".uat/lanes").exists())                                # heavy trees are never mirrored
+            uat("uat_env", "lanes", "down")

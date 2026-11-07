@@ -249,3 +249,20 @@ def layout(cfg, r):
         base = cfg["target"]["ssh"]["dir"].rstrip("/")
         return {"home": base + "/toolkit", "root": base, "udir": base + "/.uat"}
     return {"home": str(HOME), "root": str(Path(r)), "udir": str(udir(r))}
+
+
+# ---------------------------------------------------------------- model health (quota / rate limits)
+QUOTA_RE = re.compile(r"free-?limit|FreeUsageLimit|usage limit|rate.?limit|quota (exceeded|exhausted)|\b429\b|insufficient_quota|credit balance", re.I)
+
+
+def exhausted_models(r):
+    """{model: until_ts} for models whose provider said 'out of quota' and are still within their retry window."""
+    now = time.time()
+    h = jload(udir(r) / "model_health.json", {})
+    return {m: v for m, v in h.items() if isinstance(v, (int, float)) and v > now}
+
+
+def mark_exhausted(r, model, retry_after_s):
+    h = jload(udir(r) / "model_health.json", {})
+    h[model] = round(time.time() + min(max(retry_after_s, 600), 86400))
+    jdump(udir(r) / "model_health.json", h)

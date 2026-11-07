@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from uatlib import config, emit, jload, udir  # noqa: E402
+from uatlib import config, emit, exhausted_models, jload, udir  # noqa: E402
 
 S = Path(__file__).resolve().parent
 
@@ -44,6 +44,10 @@ def main():
     plan = jload(udir(root) / "plan" / "plan.json", {})
     charters = a.charters.split(",") if a.charters else [c["id"] for c in plan["charters"]]
     specs = [x.split(":", 1) for x in a.agents.split(",")]
+    dead = exhausted_models(root)
+    for fam, m in [x for x in specs if x[1] in dead]:
+        print(f"skip {fam}:{m}: out of quota until {time.strftime('%H:%M', time.localtime(dead[m]))}")
+    specs = [x for x in specs if x[1] not in dead] or sys.exit("every requested model is out of quota")
     lanes = [f"L{i}" for i in range(1, cfg["swarm"]["max_parallel"] + 1)]
     jobs = [(f"A{i + 1}", specs[i % len(specs)][0], specs[i % len(specs)][1], charters[i % len(charters)]) for i in range(max(len(specs), len(charters)))]
     wave_n = len(lanes)

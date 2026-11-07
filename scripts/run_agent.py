@@ -8,7 +8,7 @@ Every family goes through this one path, so confinement, timeout, tamper check, 
 
   run_agent.py --id A4 --lane L2 --family codex --model gpt-5.6-luna --brief .uat/agents/A4/brief.md
   run_agent.py --ping --family opencode --model opencode/glm-5.3-flash-free
-Exit: 0 ok, 1 agent failed, 2 tamper.
+Exit: 0 ok, 1 agent failed, 2 tamper, 4 every listed model is out of quota (recorded in .uat/model_health.json; do not count it as a clean run).
 """
 import argparse
 import json
@@ -25,7 +25,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sandbox  # noqa: E402
 from uat_env import Lane  # noqa: E402
-from uatlib import HOME, config, emit, finding_files, udir  # noqa: E402
+from uatlib import HOME, QUOTA_RE, config, emit, finding_files, mark_exhausted, udir  # noqa: E402
 
 
 def build(family, model, agent_dir, prompt, confined):
@@ -103,7 +103,7 @@ def main():
         n = len(list((d / "findings").glob("F-*.json")))
         emit(root, a.id, "agent_status", now=last_line(log), findings=n, secs=round(time.time() - t0))
 
-    rc, used = 1, None
+    rc, used, dead = 1, None, []
     tmp_home = None if a.ping else sandbox.agent_home(cfg, a.family)
     for model in a.model.split(","):
         state["model"] = used = model
@@ -117,6 +117,11 @@ def main():
             rc = 3                                     # process ran but did not answer: not a working model
         if rc == 0:
             break
+        if QUOTA_RE.search(out[-4000:]):               # provider says out of quota: a dead model, not a clean result
+            m = re.search(r'"retryAfterMs":\s*(\d+)', out)
+            mark_exhausted(root, model, int(m.group(1)) / 1000 if m else 3600)
+            dead.append(model)
+            emit(root, a.id, "model_exhausted", model=model)
     secs = round(time.time() - t0, 1)
     shutil.rmtree(tmp_home, ignore_errors=True) if tmp_home else None   # credentials copy never outlives the run
     tamper = [] if a.ping else lane.tamper()
@@ -130,13 +135,14 @@ def main():
                 shutil.move(str(f), str(q / f.name))
     n = len([f for f in finding_files(root) if f.parent.parent.name == a.id])
     row = {"ts": int(time.time()), "id": a.id, "family": a.family, "model": used, "rc": rc, "secs": secs, "findings": n, "tamper": bool(tamper),
-           "ping": a.ping, "lane": a.lane, "sandbox": lvl}
+           "ping": a.ping, "lane": a.lane, "sandbox": lvl, "exhausted": dead}
     with open(udir(root) / "ledger.jsonl", "a") as f:
         f.write(json.dumps(row) + "\n")
     if not a.ping:
-        emit(root, a.id, "agent_done", rc=rc, findings=n, secs=secs, tamper=tamper[:5], model=used)
+        emit(root, a.id, "agent_done", rc=rc, findings=n, secs=secs, tamper=tamper[:5], model=used,
+             note="all models out of quota" if dead and len(dead) == len(a.model.split(",")) else "")
     print(json.dumps(row))
-    sys.exit(2 if tamper else 0 if rc == 0 else 1)
+    sys.exit(2 if tamper else 0 if rc == 0 else 4 if len(dead) == len(a.model.split(",")) else 1)
 
 
 if __name__ == "__main__":
