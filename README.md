@@ -18,6 +18,7 @@ Swarm size is bounded by the machine that runs the tests (`scripts/hostinfo.py`)
 
 | Command | Does |
 |---|---|
+| `/uat-full` | The orchestrator runs the whole cycle for you. First use asks how to shape the team (one orchestrator, at least one worker; same LLM or different). It still stops before any fix and waits for your yes. `reconfigure` / `apply` change the team |
 | `/uat` | Status, starts the dashboard, routes to the next stage |
 | `/uat-init` | Choose where to run, scan the repo, verify model names, build the scrubbed environment and lanes |
 | `/uat-plan` | Extract business rules (the oracle) with sources, make charters, user approves |
@@ -30,7 +31,7 @@ Swarm size is bounded by the machine that runs the tests (`scripts/hostinfo.py`)
 
 ## Live dashboard
 
-`python3 scripts/dashboard.py --root .` then open the URL it prints. The page is read-only: it has no write endpoints at all, so nothing can be approved or changed from it. It has a collapsible sidebar, light/dark theme and Figtree, and pages for Overview, Agents, Tests, Findings, Fix cycle, Audit log, Report and the Knowledge graph.
+`python3 scripts/dashboard.py --root .` then open the URL it prints. The page is read-only with one exception: the **Team** page can save a *proposal* for a new agent team. A proposal changes nothing by itself; the orchestrator shows it to you and applies it only after you agree in chat (`/uat-full apply`). Nothing about fixes, approvals or commands can be changed from the page. It has a collapsible sidebar, light/dark theme and Figtree, and pages for Overview, Agents, Tests, Findings, Fix cycle, Audit log, Report and the Knowledge graph.
 
 ## Knowledge base and the fix cycle
 
@@ -79,3 +80,9 @@ Install: `for s in skills/*; do ln -sfn "$PWD/$s" ~/.claude/skills/$(basename $s
 ## Journey, agents and assets
 
 The full cycle, what is recorded at each step, and how to plug in any agent harness: `docs/JOURNEY.md`. Agent avatars are DiceBear "Gaze" (CC0) and icons are Iconoir (MIT), both vendored in `web/vendor/` (see the README there): the dashboard makes no requests to the internet.
+
+## Team and the one dashboard write
+
+`.uat/team.json` holds one orchestrator and one or more workers (roles `tester`, `verifier`, `fixer`; one worker may hold all three; any worker may use the same program and model as the orchestrator). `scripts/team.py` validates and applies it.
+
+The dashboard's only POST is `/api/team/propose`. Guards, all enforced server-side (see `tests/test_team.py`): loopback-only, `Host` check, exact `Origin`, `Content-Type: application/json` plus a custom header (no cross-site form can send it), a per-process random edit token compared in constant time (kept in an owner-only file, read with `python3 scripts/team.py token`; never shown in the page or chat), 8 KB body cap, 10 proposals a minute, strict schema, program names from the harness registry only, **models only from the configured list** (nothing free-typed reaches a command line), no command templates, paths or secrets. It writes `.uat/team.pending.json` and one audit record; it cannot change `team.json`, `uat.json` or run anything. Applying (ping every model, write config, audit) is done by the orchestrator in chat. Residual risk: anyone who can read your owner-only state files or run as you can already do more than this.

@@ -22,3 +22,7 @@ The page is pushed new state the moment a file under `.uat/` changes (server-sen
 ## Any agent, not only three
 
 Testers, verifiers and fix agents are run through `scripts/harness.py`. `claude`, `codex` and `opencode` are verified on this machine. `gemini`, `qwen`, `aider`, `goose`, `amp`, `cursor`, `copilot` and `crush` are presets taken from each tool's headless flags and are **not verified**: log in, then `python3 scripts/run_agent.py --ping --family <name> --model <m>` must answer OK before use. Any other agent: add a `harness` entry in `.uat/uat.json` (command template, `arg`/`stdin`/`file` prompt, files to copy into its throwaway HOME) or point `cmd` at a small wrapper script that reads the prompt file and writes `./findings/F-*.json`. The orchestrator can be any agent that can run the stage commands in the table (they are plain scripts); the `/uat*` slash skills are the Claude Code packaging of them.
+
+## One command: /uat-full
+
+`/uat-full` runs steps 1-4 and 6-7 for you and stops at step 5 (your decision on fixes). On first use it asks how to shape the team: one orchestrator and at least one worker, the same LLM for everything or different ones. Change it later with `/uat-full reconfigure`, or propose a change on the dashboard's **Team** page and confirm it in chat with `/uat-full apply`. See the README for what the dashboard may and may not write.
