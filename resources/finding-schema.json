@@ -1,0 +1,33 @@
+{
+  "$comment": "Contract for one finding file: .uat/agents/<agent>/findings/F-<n>.json. repro.cmd asserts CORRECT behaviour: exit non-zero while the bug exists, exit 0 once fixed. Runs with cwd = the agent dir.",
+  "type": "object",
+  "required": ["id", "agent", "family", "model", "lens", "area", "title", "severity", "category", "expected", "actual", "repro", "evidence"],
+  "properties": {
+    "id": {"type": "string", "minLength": 3},
+    "agent": {"type": "string", "minLength": 1},
+    "family": {"type": "string", "enum": ["claude", "codex", "opencode", "tool"]},
+    "model": {"type": "string", "minLength": 1},
+    "lens": {"type": "string", "enum": ["journey", "breaker", "resilience", "tool"]},
+    "area": {"type": "string", "minLength": 1},
+    "rule_id": {"type": "string"},
+    "title": {"type": "string", "minLength": 8, "maxLength": 120},
+    "severity": {"type": "string", "enum": ["blocker", "major", "minor", "nit"]},
+    "category": {"type": "string", "enum": ["functional", "security", "data-integrity", "concurrency", "resilience", "ux", "a11y", "performance", "api-contract", "other"]},
+    "expected": {"type": "string", "minLength": 5},
+    "actual": {"type": "string", "minLength": 5},
+    "repro": {
+      "type": "object",
+      "required": ["kind", "cmd"],
+      "properties": {
+        "kind": {"type": "string", "enum": ["shell", "playwright", "hurl", "pytest", "jest", "schemathesis", "k6", "other"]},
+        "cmd": {"type": "string", "minLength": 3},
+        "files": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "evidence": {"type": "string", "minLength": 3, "maxLength": 2000},
+    "suspect": {
+      "type": "object",
+      "properties": {"file": {"type": "string"}, "line": {"type": "integer"}, "symbol": {"type": "string"}}
+    }
+  }
+}

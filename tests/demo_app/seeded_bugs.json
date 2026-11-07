@@ -1,0 +1,12 @@
+{
+  "app": "demo shop (tests/demo_app/app.py)",
+  "start": "python3 tests/demo_app/app.py 8080",
+  "bugs": [
+    {"rule_id": "R-CART-01", "severity": "major", "probe": "neg_qty"},
+    {"rule_id": "R-PRICE-02", "severity": "major", "probe": "double_coupon"},
+    {"rule_id": "R-ORDER-01", "severity": "major", "probe": "empty_checkout"},
+    {"rule_id": "R-PRICE-01", "severity": "minor", "probe": "float_total"},
+    {"rule_id": "R-AUTH-01", "severity": "blocker", "probe": "idor"}
+  ],
+  "decoys": [{"rule_id": "R-CART-03", "probe": "cart_isolation"}]
+}

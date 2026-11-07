@@ -1,0 +1,8 @@
+[
+  {"id": "R-CART-01", "area": "cart", "statement": "Cart quantity must be a positive integer; otherwise reject with 400.", "source": "demo spec", "confidence": "high"},
+  {"id": "R-CART-03", "area": "cart", "statement": "Each user has a separate cart.", "source": "demo spec", "confidence": "high"},
+  {"id": "R-PRICE-01", "area": "pricing", "statement": "Order total is rounded to 2 decimals.", "source": "demo spec", "confidence": "high"},
+  {"id": "R-PRICE-02", "area": "pricing", "statement": "Coupon SAVE10 gives 10% off once per order; applying it again has no further effect.", "source": "demo spec", "confidence": "high"},
+  {"id": "R-ORDER-01", "area": "orders", "statement": "Checkout with an empty cart is rejected with 400.", "source": "demo spec", "confidence": "high"},
+  {"id": "R-AUTH-01", "area": "orders", "statement": "Only the owner may read an order; others get 403 or 404.", "source": "demo spec", "confidence": "high"}
+]

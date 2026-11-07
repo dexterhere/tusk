@@ -1,0 +1,42 @@
+{
+  "models": {
+    "claude": {"cheap": ["haiku"], "mid": ["sonnet"]},
+    "codex": {"cheap": ["gpt-6-luna", "gpt-5.6-luna", "gpt-reserve"], "mid": ["gpt-6.1-terra"]},
+    "opencode": {
+      "cheap": [
+        "opencode/deepseek-v4.1-flash-free",
+        "opencode/glm-5.3-flash-free",
+        "opencode/mimo-v2.6-flash-free",
+        "opencode/nemotron-3.5-lightning-free"
+      ],
+      "mid": []
+    }
+  },
+  "swarm": {
+    "min_agents": 3,
+    "max_agents": 12,
+    "reference_agents": 9,
+    "max_parallel": 3,
+    "families": ["claude", "codex", "opencode"],
+    "lenses": ["journey", "breaker", "resilience"]
+  },
+  "stop": {"saturation_rounds": 2, "max_rounds": 4, "agent_timeout_s": 900, "budget_wall_s": 7200, "max_findings_per_agent": 8},
+  "replay": {"runs": 3, "timeout_s": 120, "restore_between": true},
+  "env": {
+    "base_url": "http://127.0.0.1:8080",
+    "health_url": "http://127.0.0.1:8080/",
+    "health_timeout_s": 60,
+    "setup_cmd": "",
+    "start_cmd": "",
+    "stop_cmd": "",
+    "restore_cmd": "",
+    "snapshot_cmd": "",
+    "state_paths": [],
+    "vars": {}
+  },
+  "guard": {
+    "safe_hosts": ["localhost", "127.0.0.1", "0.0.0.0", "db", "postgres", "mysql", "redis", "mongo", "host.docker.internal"],
+    "scan_globs": [".env*", "config/*", "*.toml", "*.yaml", "*.yml", "*.json", "*.properties"]
+  },
+  "tools": {"enabled": [], "skip_localstack": true}
+}
